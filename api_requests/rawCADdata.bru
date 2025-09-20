@@ -1,0 +1,19 @@
+meta {
+  name: rawCADdata
+  type: http
+  seq: 1
+}
+
+get {
+  url: https://ssd-api.jpl.nasa.gov/cad.api?diameter=true
+  body: none
+  auth: inherit
+}
+
+params:query {
+  diameter: true
+}
+
+settings {
+  encodeUrl: true
+}
