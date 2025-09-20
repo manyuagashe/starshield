@@ -1,33 +1,62 @@
-# StarShield Prediction Layer Dependencies
+# ================================================================================
+# StarShield Asteroid Risk Prediction API - Production Dependencies
+# 
+# Tested and validated dependency versions for the complete system including:
+# - FastAPI web server and API endpoints
+# - Machine learning model training and prediction
+# - NASA JPL CAD data processing
+# - Real-time WebSocket support
+# - Production deployment capabilities
+# ================================================================================
 
-# Core FastAPI and async support
-fastapi>=0.104.0
-uvicorn[standard]>=0.24.0
+# Core FastAPI and web server
+fastapi==0.116.2
+uvicorn==0.36.0
 python-multipart>=0.0.6
 
-# Data validation and settings
-pydantic>=2.5.0
+# Data validation and models  
+pydantic==2.11.9
+pydantic-core==2.33.2
 pydantic-settings>=2.1.0
 
-# Data processing (for integration with Model/Query layers)
-pandas>=2.1.0
-numpy>=1.24.0
+# Data processing and analysis
+pandas==2.3.2
+numpy==2.3.3
+scipy>=1.11.0
 
-# Caching backends
-aioredis>=2.0.1  # Optional: for Redis caching
-aiosqlite>=0.19.0  # Optional: for async SQLite support
+# Machine Learning
+scikit-learn==1.7.2
+joblib==1.5.2
 
-# Development and testing dependencies
-pytest>=7.4.0
-pytest-asyncio>=0.21.0
-httpx>=0.25.0  # For testing FastAPI endpoints
-pytest-cov>=4.1.0
+# Data visualization (for model training analysis)
+matplotlib==3.10.6
+seaborn==0.13.2
 
-# Optional: for production deployment
+# HTTP requests (for NASA API data fetching and testing)
+requests==2.32.5
+
+# WebSocket support
+websockets>=11.0.0
+
+# Production deployment
 gunicorn>=21.0.0
 
-# Type checking and linting (development)
-mypy>=1.7.0
+# Security and CORS
+python-jose>=3.3.0
+passlib>=1.7.4
+
+# Development and testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+httpx>=0.25.0
+pytest-cov>=4.1.0
+
+# Code quality tools
 black>=23.0.0
 isort>=5.12.0
 flake8>=6.1.0
+
+# Optional: Enhanced production features
+aioredis>=2.0.1      # Redis caching backend
+aiosqlite>=0.19.0    # Async SQLite support
+prometheus-client>=0.19.0  # Metrics collection
