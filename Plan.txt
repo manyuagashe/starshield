@@ -1,0 +1,96 @@
+Here’s your PDF converted into plain text so you can paste it anywhere:
+
+---
+
+**Plan**
+
+**Layer – Input/Output – What you Actually Do – Ideas on How to**
+
+---
+
+### Query
+
+* SSD/CNEOS CAD
+* SSD/CNEOS Sentry
+* (optional) NeoWs
+
+**Python call params → Raw records; normalized tables**
+
+* Chunked windowing: split `date_min/date_max` into ≤7-day slices (NeoWs) and combine.
+* Retry/backoff: exponential backoff on 429/5xx; cap attempts; jitter.
+* Thin payloads: use `fields=` (CAD/Sentry) to only pull needed columns.
+* Type + unit normalize: cast to numeric, UTC datetimes; km/s ↔ m/s only in model; keep CAD au here.
+* Key normalization: `des_key = upper(remove_spaces(designation/name))` for joins.
+* Param-keyed cache: memoize by `(date_min, date_max, dist_max_au, ip_min, include_neows)` with TTL (6–24h).
+* Error shaping: raise rich exceptions with endpoint, params, status, sample of body.
+* Observability: log timing, bytes in/out, hit/miss cache counters.
+* Local fixtures: save golden JSON responses for offline tests / demos.
+* Secrets & limits: read API keys from env; detect DEMO\_KEY and auto-throttle.
+
+---
+
+### Model
+
+**Pure functions on tidy DataFrames**
+(data from Querying → Process the data/math → Final tidy table for API)
+
+* Pure functions: no I/O; accept DataFrames/dicts, return new DataFrame.
+
+* Deterministic config: central `ModelParams(albedo, dist_penalty_eps, bucketing='tertiles')`.
+
+* Join discipline: left-join CAD→Sentry on `des_key`; annotate `_merge` to audit losses.
+
+* Diameter strategy: prefer NeoWs mean; fallback via
+
+  $$
+  D_{km} = \frac{1329}{\sqrt{p_V}}10^{-H/5}/1000
+  $$
+
+* Risk proxy: $proxy \propto D^3 \cdot v^2 / (\text{dist}+\varepsilon)$; guard NaNs.
+
+* Scaling & bins: min-max to \[0,1]; bucket by tertiles (or custom cutpoints).
+
+* Explainability: add columns `risk_terms = {"D^3":…, "v^2":…, "1/dist":…}` and `score_notes`.
+
+* QA checks: assert ranges (`dist > 0`, `v_rel > 0`), outlier clipping (e.g., winsorize top 1%).
+
+* Perf: vectorize (pandas/NumPy), avoid row-wise UDFs except final formatting.
+
+* Tests: unit tests for formulas; golden-row tests verifying joins & buckets.
+
+---
+
+### Wrapper
+
+**Validates, caches, orchestrates**
+(calls Querying layer → calls Model layer)
+
+* Make endpoints (clean contracts).
+* Pydantic schemas: request validators (dates, ranges) + response models.
+* Caching layer: Redis/SQLite cache keyed by validated params; include `generated_at`.
+* ETags & 304: hash `final_df` to support conditional GETs.
+* Pagination: `?page=&page_size=` with stable sorts; include `total_rows`.
+* Rate limiting: lightweight token bucket per client/IP.
+* CORS: allow your frontend origin only; preflight cache.
+* Error mapping: 400 (validation), 429 (upstream throttle), 502/504 (upstream fail/timeout).
+* Metrics: `/metrics` (latency, cache hit rate, upstream calls); `/health` (deps ping).
+* Circuit breaker: trip on repeated upstream failures; serve stale cache with `stale=true`.
+* Docs: tag routes; examples in OpenAPI; add `x-codeSamples` (curl/python).
+* DI wiring: inject `QueryClient`, `Model`, `Cache` for easy testing/mocking.
+
+---
+
+### Frontend
+
+**(HTTP JSON: user filters) → FastAPI → UI state + visuals**
+
+* Controls: date range picker, slider for `dist_max_au`, `ip_min`, toggle PHA only.
+* Charts:
+
+  * Timeline (bubble size = `diam_km`, color = `risk_bucket`).
+  * Scatter `diam_km` vs `v_rel_kms` (color = `risk_bucket`).
+  * Bar counts by `risk_bucket` (facet by PHA).
+* Table with download (CSV).
+* Details drawer: click a point → show Sentry `ip`, `ps`, `ts`, next `ndate`, plus “how score was computed”.
+
+---
