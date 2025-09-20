@@ -1,0 +1,21 @@
+meta {
+  name: NeoWs
+  type: http
+  seq: 3
+}
+
+get {
+  url: https://api.nasa.gov/neo/rest/v1/feed?start_date=2025-09-21&end_date=2025-09-25&api_key={{process.env.NASA_API_KEY}}
+  body: none
+  auth: inherit
+}
+
+params:query {
+  start_date: 2025-09-21
+  end_date: 2025-09-25
+  api_key: Iac5rQKbORJ2fnslfC0g3yXyl579FpVrzMpM6F6z
+}
+
+settings {
+  encodeUrl: true
+}
