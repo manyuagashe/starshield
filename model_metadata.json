@@ -1,0 +1,26 @@
+{
+  "training_records": 1040,
+  "features_used": [
+    "distance_au",
+    "velocity_kms",
+    "diameter_km",
+    "v_infinity_kms",
+    "is_pha",
+    "class_AMO",
+    "class_APO",
+    "class_ATE",
+    "class_IEO"
+  ],
+  "risk_mapping": {
+    "Low": 0,
+    "Medium": 1,
+    "High": 2,
+    "Critical": 3
+  },
+  "model_type": "RandomForestClassifier",
+  "model_params": {
+    "n_estimators": 100,
+    "max_depth": 10,
+    "random_state": 42
+  }
+}

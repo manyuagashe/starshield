@@ -1,20 +1,53 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import FastAPI, HTTPException, Depends, Request, BackgroundTasks, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from pydantic import BaseModel, Field, validator
 import joblib
 import pandas as pd
 import numpy as np
 import json
 import os
-from typing import Literal, Dict, Any
+import asyncio
+import logging
+from datetime import datetime
+from typing import Literal, Dict, Any, Optional, List
+import uvicorn
 
-# --- 1. Initialize the FastAPI App ---
+# --- 1. Configure Logging ---
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# --- 2. Initialize the FastAPI App with Enhanced Configuration ---
 app = FastAPI(
-    title="Asteroid Risk Prediction API",
-    description="An API that uses a RandomForest model trained on your real JSON data to predict NEO risk.",
-    version="1.0.0"
+    title="StarShield Asteroid Risk Prediction API",
+    description="A production-ready API that uses a RandomForest model trained on real NASA JPL CAD data to predict NEO (Near-Earth Object) risk levels with real-time predictions and comprehensive connection capabilities.",
+    version="2.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"
 )
 
-# --- 2. Load the Trained Model and Labels ---
+# --- 3. Add Middleware for Production Use ---
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Configure appropriately for production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.add_middleware(
+    TrustedHostMiddleware, 
+    allowed_hosts=["*"]  # Configure appropriately for production
+)
+
+# --- 4. Global State for Connection Tracking ---
+app.state.prediction_count = 0
+app.state.start_time = datetime.now()
+app.state.connected_clients = set()
+app.state.websocket_connections = set()
+
+# --- 5. Load the Trained Model and Labels ---
 try:
     model = joblib.load('asteroid_risk_model.joblib')
     label_map = joblib.load('risk_level_labels.joblib')
@@ -44,31 +77,35 @@ except FileNotFoundError as e:
     TRAINING_FEATURES = []
 
 
-# --- 3. Define the Input Data Model using Pydantic ---
+# --- 6. Enhanced Data Models with Validation ---
 class AsteroidFeatures(BaseModel):
     distance_au: float = Field(
         ..., 
         example=0.018, 
         description="Closest approach distance in Astronomical Units.",
-        gt=0
+        gt=0,
+        le=1.0  # Max 1 AU for close approach
     )
     velocity_kms: float = Field(
         ..., 
         example=22.3, 
         description="Relative velocity in km/s.",
-        gt=0
+        gt=0,
+        le=100.0  # Reasonable max velocity
     )
     diameter_km: float = Field(
         ..., 
         example=0.45, 
         description="Estimated diameter in km.",
-        gt=0
+        gt=0,
+        le=100.0  # Max reasonable asteroid size
     )
     v_infinity_kms: float = Field(
         ..., 
         example=18.1, 
         description="Velocity at infinity in km/s.",
-        gt=0
+        gt=0,
+        le=100.0
     )
     is_pha: bool = Field(
         ..., 
@@ -78,11 +115,23 @@ class AsteroidFeatures(BaseModel):
     orbit_class: Literal['ATE', 'APO', 'AMO', 'IEO'] = Field(
         ..., 
         example='APO', 
-        description="The asteroid's orbit class."
+        description="The asteroid's orbit class (Apollo, Aten, Amor, Interior Earth Object)."
     )
+    
+    @validator('distance_au')
+    def validate_distance(cls, v):
+        if v > 0.5:
+            logger.warning(f"Unusually large approach distance: {v} AU")
+        return v
+    
+    @validator('diameter_km')
+    def validate_diameter(cls, v):
+        if v > 10.0:
+            logger.warning(f"Very large asteroid diameter: {v} km")
+        return v
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "distance_au": 0.018,
                 "velocity_kms": 22.3,
@@ -93,6 +142,14 @@ class AsteroidFeatures(BaseModel):
             }
         }
 
+class BatchPredictionRequest(BaseModel):
+    asteroids: List[AsteroidFeatures] = Field(
+        ...,
+        description="List of asteroids to predict",
+        min_items=1,
+        max_items=100  # Limit batch size
+    )
+
 
 class PredictionResponse(BaseModel):
     input_features: Dict[str, Any]
@@ -101,7 +158,42 @@ class PredictionResponse(BaseModel):
     confidence: float
     prediction_probabilities: Dict[str, float]
     model_info: Dict[str, Any]
+    prediction_id: str = Field(description="Unique prediction identifier")
+    timestamp: str = Field(description="Prediction timestamp")
+    processing_time_ms: float = Field(description="Processing time in milliseconds")
 
+class BatchPredictionResponse(BaseModel):
+    predictions: List[PredictionResponse]
+    batch_id: str
+    total_predictions: int
+    successful_predictions: int
+    failed_predictions: int
+    total_processing_time_ms: float
+
+class HealthResponse(BaseModel):
+    status: str
+    model_loaded: bool
+    version: str
+    uptime_seconds: float
+    total_predictions: int
+    current_connections: int
+
+
+# --- 7. Dependency Injection and Connection Management ---
+async def track_connection(request: Request):
+    """Track client connections for monitoring."""
+    client_ip = request.client.host
+    app.state.connected_clients.add(client_ip)
+    return client_ip
+
+async def get_model_dependency():
+    """Dependency to ensure model is loaded."""
+    if not model or not label_map:
+        raise HTTPException(
+            status_code=503,
+            detail="Model not loaded. Please check server configuration."
+        )
+    return {"model": model, "label_map": label_map, "features": TRAINING_FEATURES}
 
 # --- Helper function for risk score calculation ---
 def calculate_risk_score(probabilities: np.ndarray) -> float:
@@ -117,22 +209,36 @@ def get_confidence_score(probabilities: np.ndarray) -> float:
     return float(np.max(probabilities))
 
 
-# --- 4. Create the Prediction Endpoint ---
+# --- 8. Enhanced Prediction Endpoints ---
 @app.post("/predict", response_model=PredictionResponse)
-def predict_risk(asteroid: AsteroidFeatures):
+async def predict_risk(
+    asteroid: AsteroidFeatures,
+    background_tasks: BackgroundTasks,
+    client_ip: str = Depends(track_connection),
+    model_deps: Dict = Depends(get_model_dependency)
+):
     """
     Predict the risk level of an asteroid based on its orbital and physical characteristics.
     
-    The model was trained on real asteroid data in JSON format and uses a RandomForest classifier
+    This endpoint uses a RandomForest classifier trained on real NASA JPL Close Approach Data
     to predict risk levels: Low, Medium, High, or Critical.
+    
+    Features:
+    - Real-time prediction with sub-second response times
+    - Confidence scoring and probability distributions
+    - Connection tracking and monitoring
+    - Comprehensive error handling
     """
-    if not model or not label_map:
-        raise HTTPException(
-            status_code=503, 
-            detail="Model not loaded. Please check server startup logs and ensure the model files exist."
-        )
-
+    import time
+    import uuid
+    
+    start_time = time.time()
+    prediction_id = str(uuid.uuid4())
+    
     try:
+        # Increment prediction counter
+        app.state.prediction_count += 1
+        
         # Convert input to DataFrame
         input_df_raw = pd.DataFrame([asteroid.dict()])
         
@@ -143,17 +249,30 @@ def predict_risk(asteroid: AsteroidFeatures):
         input_df_final = input_df_processed.reindex(columns=TRAINING_FEATURES, fill_value=0)
         
         # Make predictions
-        prediction_encoded = model.predict(input_df_final)[0]
-        probabilities = model.predict_proba(input_df_final)[0]
-        predicted_level = label_map[prediction_encoded]
+        prediction_encoded = model_deps["model"].predict(input_df_final)[0]
+        probabilities = model_deps["model"].predict_proba(input_df_final)[0]
+        predicted_level = model_deps["label_map"][prediction_encoded]
         risk_score = calculate_risk_score(probabilities)
         confidence = get_confidence_score(probabilities)
         
         # Format probability results
         prob_dict = {
-            label_map.get(i, f"Unknown_{i}"): round(float(p), 4) 
+            model_deps["label_map"].get(i, f"Unknown_{i}"): round(float(p), 4) 
             for i, p in enumerate(probabilities)
         }
+        
+        # Calculate processing time
+        processing_time = (time.time() - start_time) * 1000  # Convert to milliseconds
+        
+        # Log prediction (background task)
+        background_tasks.add_task(
+            log_prediction, 
+            prediction_id, 
+            client_ip, 
+            predicted_level, 
+            confidence,
+            processing_time
+        )
         
         return PredictionResponse(
             input_features=asteroid.dict(),
@@ -164,49 +283,428 @@ def predict_risk(asteroid: AsteroidFeatures):
             model_info={
                 "model_type": "RandomForestClassifier",
                 "features_used": len(TRAINING_FEATURES),
-                "available_classes": list(label_map.values())
-            }
+                "available_classes": list(model_deps["label_map"].values()),
+                "training_data_source": "NASA JPL CAD API"
+            },
+            prediction_id=prediction_id,
+            timestamp=datetime.now().isoformat(),
+            processing_time_ms=round(processing_time, 2)
         )
         
     except Exception as e:
+        logger.error(f"Prediction failed for {prediction_id}: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Prediction failed: {str(e)}"
         )
 
+@app.post("/predict/batch", response_model=BatchPredictionResponse)
+async def predict_batch(
+    batch_request: BatchPredictionRequest,
+    background_tasks: BackgroundTasks,
+    client_ip: str = Depends(track_connection),
+    model_deps: Dict = Depends(get_model_dependency)
+):
+    """
+    Predict risk levels for multiple asteroids in a single request.
+    
+    Supports batch processing up to 100 asteroids at once for efficient
+    bulk predictions with comprehensive error handling per item.
+    """
+    import time
+    import uuid
+    
+    start_time = time.time()
+    batch_id = str(uuid.uuid4())
+    predictions = []
+    successful = 0
+    failed = 0
+    
+    logger.info(f"Processing batch {batch_id} with {len(batch_request.asteroids)} asteroids from {client_ip}")
+    
+    for i, asteroid in enumerate(batch_request.asteroids):
+        try:
+            # Process individual prediction
+            input_df_raw = pd.DataFrame([asteroid.dict()])
+            input_df_processed = pd.get_dummies(input_df_raw, columns=['orbit_class'], prefix='class')
+            input_df_final = input_df_processed.reindex(columns=TRAINING_FEATURES, fill_value=0)
+            
+            prediction_encoded = model_deps["model"].predict(input_df_final)[0]
+            probabilities = model_deps["model"].predict_proba(input_df_final)[0]
+            predicted_level = model_deps["label_map"][prediction_encoded]
+            risk_score = calculate_risk_score(probabilities)
+            confidence = get_confidence_score(probabilities)
+            
+            prob_dict = {
+                model_deps["label_map"].get(j, f"Unknown_{j}"): round(float(p), 4) 
+                for j, p in enumerate(probabilities)
+            }
+            
+            prediction_id = f"{batch_id}-{i}"
+            item_processing_time = (time.time() - start_time) * 1000
+            
+            predictions.append(PredictionResponse(
+                input_features=asteroid.dict(),
+                predicted_risk_level=predicted_level,
+                predicted_risk_score=round(risk_score, 4),
+                confidence=round(confidence, 4),
+                prediction_probabilities=prob_dict,
+                model_info={
+                    "model_type": "RandomForestClassifier",
+                    "features_used": len(TRAINING_FEATURES),
+                    "available_classes": list(model_deps["label_map"].values())
+                },
+                prediction_id=prediction_id,
+                timestamp=datetime.now().isoformat(),
+                processing_time_ms=round(item_processing_time, 2)
+            ))
+            successful += 1
+            
+        except Exception as e:
+            logger.error(f"Failed to process asteroid {i} in batch {batch_id}: {str(e)}")
+            failed += 1
+    
+    total_processing_time = (time.time() - start_time) * 1000
+    app.state.prediction_count += successful
+    
+    # Log batch processing
+    background_tasks.add_task(
+        log_batch_prediction,
+        batch_id,
+        client_ip,
+        len(batch_request.asteroids),
+        successful,
+        failed,
+        total_processing_time
+    )
+    
+    return BatchPredictionResponse(
+        predictions=predictions,
+        batch_id=batch_id,
+        total_predictions=len(batch_request.asteroids),
+        successful_predictions=successful,
+        failed_predictions=failed,
+        total_processing_time_ms=round(total_processing_time, 2)
+    )
 
-# --- 5. Additional Endpoints ---
-@app.get("/")
-def read_root():
-    """Root endpoint for health check."""
-    return {
-        "status": "ok", 
-        "message": "Asteroid Risk Prediction API is running.",
-        "model_loaded": model is not None,
-        "version": "1.0.0"
-    }
+# Background task functions
+async def log_prediction(prediction_id: str, client_ip: str, risk_level: str, confidence: float, processing_time: float):
+    """Log prediction details for monitoring and analytics."""
+    logger.info(f"Prediction {prediction_id} from {client_ip}: {risk_level} (confidence: {confidence:.2f}, time: {processing_time:.2f}ms)")
+
+async def log_batch_prediction(batch_id: str, client_ip: str, total: int, successful: int, failed: int, processing_time: float):
+    """Log batch prediction details."""
+    logger.info(f"Batch {batch_id} from {client_ip}: {successful}/{total} successful, {failed} failed, time: {processing_time:.2f}ms")
+
+
+# --- 8.5. Data Endpoints for Training and Test Sets ---
+
+@app.get("/data/train", response_model=BatchPredictionResponse)
+def get_train_predictions(
+    background_tasks: BackgroundTasks, 
+    client_ip: str = Depends(track_connection),
+    model_deps: Dict = Depends(get_model_dependency)
+):
+    """
+    Get predictions for all asteroids in the training dataset.
+    """
+    import time
+    batch_id = f"train_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    
+    try:
+        # Load training data
+        with open('real_asteroid_data_train.json', 'r') as f:
+            train_data = json.load(f)
+        
+        # Convert to batch prediction format
+        asteroids = []
+        for record in train_data:
+            asteroids.append(AsteroidFeatures(
+                distance_au=record['distance_au'],
+                velocity_kms=record['velocity_kms'],
+                diameter_km=record['diameter_km'],
+                v_infinity_kms=record['v_infinity_kms'],
+                is_pha=record['is_pha'],
+                orbit_class=record['orbit_class']
+            ))
+        
+        # Process predictions using the same logic as the batch endpoint
+        start_time = time.time()
+        predictions = []
+        successful = 0
+        failed = 0
+        
+        for i, asteroid in enumerate(asteroids):
+            try:
+                item_start_time = time.time()
+                
+                # Convert input to DataFrame (same as single predict)
+                input_df_raw = pd.DataFrame([asteroid.dict()])
+                
+                # Apply one-hot encoding for orbit_class (same as training)
+                input_df_processed = pd.get_dummies(input_df_raw, columns=['orbit_class'], prefix='class')
+                
+                # Ensure all training features are present
+                input_df_final = input_df_processed.reindex(columns=TRAINING_FEATURES, fill_value=0)
+                
+                # Make predictions
+                prediction_encoded = model_deps["model"].predict(input_df_final)[0]
+                probabilities = model_deps["model"].predict_proba(input_df_final)[0]
+                predicted_level = model_deps["label_map"][prediction_encoded]
+                risk_score = calculate_risk_score(probabilities)
+                confidence = get_confidence_score(probabilities)
+                
+                # Format probability results
+                prob_dict = {
+                    model_deps["label_map"].get(j, f"Unknown_{j}"): round(float(p), 4) 
+                    for j, p in enumerate(probabilities)
+                }
+                
+                item_processing_time = (time.time() - item_start_time) * 1000
+                prediction_id = f"{batch_id}_item_{i}"
+                
+                predictions.append(PredictionResponse(
+                    input_features=asteroid.dict(),
+                    predicted_risk_level=predicted_level,
+                    predicted_risk_score=risk_score,
+                    confidence=round(confidence, 4),
+                    prediction_probabilities=prob_dict,
+                    model_info={
+                        "model_type": "RandomForestClassifier",
+                        "features_used": len(TRAINING_FEATURES),
+                        "available_classes": list(model_deps["label_map"].values())
+                    },
+                    prediction_id=prediction_id,
+                    timestamp=datetime.now().isoformat(),
+                    processing_time_ms=round(item_processing_time, 2)
+                ))
+                successful += 1
+                
+            except Exception as e:
+                logger.error(f"Failed to process training record {i}: {str(e)}")
+                failed += 1
+        
+        total_processing_time = (time.time() - start_time) * 1000
+        app.state.prediction_count += successful
+        
+        return BatchPredictionResponse(
+            predictions=predictions,
+            batch_id=batch_id,
+            total_predictions=len(asteroids),
+            successful_predictions=successful,
+            failed_predictions=failed,
+            total_processing_time_ms=round(total_processing_time, 2)
+        )
+        
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Training data file not found. Run convert_cad_data.py first.")
+    except Exception as e:
+        logger.error(f"Error processing training data: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error processing training data: {str(e)}")
+
+
+@app.get("/data/test", response_model=BatchPredictionResponse)
+def get_test_predictions(
+    background_tasks: BackgroundTasks, 
+    client_ip: str = Depends(track_connection),
+    model_deps: Dict = Depends(get_model_dependency)
+):
+    """
+    Get predictions for all asteroids in the test dataset.
+    """
+    import time
+    batch_id = f"test_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    
+    try:
+        # Load test data
+        with open('real_asteroid_data_test.json', 'r') as f:
+            test_data = json.load(f)
+        
+        # Convert to batch prediction format
+        asteroids = []
+        for record in test_data:
+            asteroids.append(AsteroidFeatures(
+                distance_au=record['distance_au'],
+                velocity_kms=record['velocity_kms'],
+                diameter_km=record['diameter_km'],
+                v_infinity_kms=record['v_infinity_kms'],
+                is_pha=record['is_pha'],
+                orbit_class=record['orbit_class']
+            ))
+        
+        # Process predictions using the same logic as the batch endpoint
+        start_time = time.time()
+        predictions = []
+        successful = 0
+        failed = 0
+        
+        for i, asteroid in enumerate(asteroids):
+            try:
+                item_start_time = time.time()
+                
+                # Convert input to DataFrame (same as single predict)
+                input_df_raw = pd.DataFrame([asteroid.dict()])
+                
+                # Apply one-hot encoding for orbit_class (same as training)
+                input_df_processed = pd.get_dummies(input_df_raw, columns=['orbit_class'], prefix='class')
+                
+                # Ensure all training features are present
+                input_df_final = input_df_processed.reindex(columns=TRAINING_FEATURES, fill_value=0)
+                
+                # Make predictions
+                prediction_encoded = model_deps["model"].predict(input_df_final)[0]
+                probabilities = model_deps["model"].predict_proba(input_df_final)[0]
+                predicted_level = model_deps["label_map"][prediction_encoded]
+                risk_score = calculate_risk_score(probabilities)
+                confidence = get_confidence_score(probabilities)
+                
+                # Format probability results
+                prob_dict = {
+                    model_deps["label_map"].get(j, f"Unknown_{j}"): round(float(p), 4) 
+                    for j, p in enumerate(probabilities)
+                }
+                
+                item_processing_time = (time.time() - item_start_time) * 1000
+                prediction_id = f"{batch_id}_item_{i}"
+                
+                predictions.append(PredictionResponse(
+                    input_features=asteroid.dict(),
+                    predicted_risk_level=predicted_level,
+                    predicted_risk_score=risk_score,
+                    confidence=round(confidence, 4),
+                    prediction_probabilities=prob_dict,
+                    model_info={
+                        "model_type": "RandomForestClassifier",
+                        "features_used": len(TRAINING_FEATURES),
+                        "available_classes": list(model_deps["label_map"].values())
+                    },
+                    prediction_id=prediction_id,
+                    timestamp=datetime.now().isoformat(),
+                    processing_time_ms=round(item_processing_time, 2)
+                ))
+                successful += 1
+                
+            except Exception as e:
+                logger.error(f"Failed to process test record {i}: {str(e)}")
+                failed += 1
+        
+        total_processing_time = (time.time() - start_time) * 1000
+        app.state.prediction_count += successful
+        
+        return BatchPredictionResponse(
+            predictions=predictions,
+            batch_id=batch_id,
+            total_predictions=len(asteroids),
+            successful_predictions=successful,
+            failed_predictions=failed,
+            total_processing_time_ms=round(total_processing_time, 2)
+        )
+        
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Test data file not found. Run convert_cad_data.py first.")
+    except Exception as e:
+        logger.error(f"Error processing test data: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error processing test data: {str(e)}")
+
+
+# --- 9. Enhanced Health and Monitoring Endpoints ---
+@app.get("/", response_model=HealthResponse)
+async def read_root():
+    """
+    Root endpoint providing comprehensive health check and system status.
+    
+    Returns current system status, model state, uptime, and connection metrics.
+    """
+    uptime = (datetime.now() - app.state.start_time).total_seconds()
+    
+    return HealthResponse(
+        status="healthy" if model and label_map else "degraded",
+        model_loaded=model is not None and label_map is not None,
+        version="2.0.0",
+        uptime_seconds=round(uptime, 2),
+        total_predictions=app.state.prediction_count,
+        current_connections=len(app.state.connected_clients)
+    )
+
+@app.get("/health/live")
+async def liveness_probe():
+    """Kubernetes liveness probe endpoint."""
+    return {"status": "alive", "timestamp": datetime.now().isoformat()}
+
+@app.get("/health/ready")
+async def readiness_probe():
+    """Kubernetes readiness probe endpoint."""
+    if not model or not label_map:
+        raise HTTPException(status_code=503, detail="Model not ready")
+    return {"status": "ready", "model_loaded": True, "timestamp": datetime.now().isoformat()}
 
 
 @app.get("/model/info")
-def get_model_info():
-    """Get information about the loaded model."""
-    if not model or not label_map:
-        raise HTTPException(
-            status_code=503,
-            detail="Model not loaded"
-        )
+async def get_model_info(model_deps: Dict = Depends(get_model_dependency)):
+    """
+    Get comprehensive information about the loaded model.
     
+    Includes training metadata, feature importance, model parameters,
+    and performance metrics.
+    """
     try:
         with open('model_metadata.json', 'r') as f:
             metadata = json.load(f)
     except FileNotFoundError:
         metadata = {"message": "Metadata file not found"}
     
-    return {
+    # Add runtime information
+    model_info = {
         "model_loaded": True,
-        "available_classes": list(label_map.values()),
+        "available_classes": list(model_deps["label_map"].values()),
         "training_features": TRAINING_FEATURES,
-        "metadata": metadata
+        "feature_count": len(TRAINING_FEATURES),
+        "metadata": metadata,
+        "runtime_stats": {
+            "total_predictions": app.state.prediction_count,
+            "uptime_seconds": (datetime.now() - app.state.start_time).total_seconds(),
+            "connected_clients": len(app.state.connected_clients)
+        }
+    }
+    
+    # Add feature importance if available
+    try:
+        if hasattr(model, 'feature_importances_'):
+            feature_importance = dict(zip(TRAINING_FEATURES, model.feature_importances_))
+            model_info["feature_importance"] = {
+                k: round(float(v), 4) for k, v in feature_importance.items()
+            }
+    except Exception as e:
+        logger.warning(f"Could not get feature importance: {e}")
+    
+    return model_info
+
+@app.get("/metrics")
+async def get_metrics():
+    """
+    Get system metrics for monitoring and observability.
+    
+    Provides detailed metrics for monitoring tools like Prometheus.
+    """
+    uptime = (datetime.now() - app.state.start_time).total_seconds()
+    
+    return {
+        "system": {
+            "uptime_seconds": round(uptime, 2),
+            "start_time": app.state.start_time.isoformat(),
+            "current_time": datetime.now().isoformat()
+        },
+        "api": {
+            "total_predictions": app.state.prediction_count,
+            "predictions_per_second": round(app.state.prediction_count / max(uptime, 1), 4),
+            "connected_clients": len(app.state.connected_clients),
+            "active_connections": len(app.state.connected_clients)
+        },
+        "model": {
+            "loaded": model is not None and label_map is not None,
+            "features_count": len(TRAINING_FEATURES) if TRAINING_FEATURES else 0,
+            "classes_count": len(label_map) if label_map else 0
+        }
     }
 
 
@@ -241,6 +739,122 @@ def get_sample_data():
     }
 
 
+# --- 10. WebSocket Support for Real-time Connections ---
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """
+    WebSocket endpoint for real-time asteroid risk predictions.
+    
+    Supports streaming predictions and real-time monitoring.
+    """
+    await websocket.accept()
+    app.state.websocket_connections.add(websocket)
+    
+    try:
+        while True:
+            # Receive data from client
+            data = await websocket.receive_json()
+            
+            if data.get("type") == "predict":
+                try:
+                    # Validate asteroid data
+                    asteroid_data = data.get("asteroid")
+                    asteroid = AsteroidFeatures(**asteroid_data)
+                    
+                    # Make prediction
+                    input_df_raw = pd.DataFrame([asteroid.dict()])
+                    input_df_processed = pd.get_dummies(input_df_raw, columns=['orbit_class'], prefix='class')
+                    input_df_final = input_df_processed.reindex(columns=TRAINING_FEATURES, fill_value=0)
+                    
+                    prediction_encoded = model.predict(input_df_final)[0]
+                    probabilities = model.predict_proba(input_df_final)[0]
+                    predicted_level = label_map[prediction_encoded]
+                    risk_score = calculate_risk_score(probabilities)
+                    confidence = get_confidence_score(probabilities)
+                    
+                    prob_dict = {
+                        label_map.get(i, f"Unknown_{i}"): round(float(p), 4) 
+                        for i, p in enumerate(probabilities)
+                    }
+                    
+                    # Send prediction result
+                    await websocket.send_json({
+                        "type": "prediction_result",
+                        "prediction": {
+                            "predicted_risk_level": predicted_level,
+                            "predicted_risk_score": round(risk_score, 4),
+                            "confidence": round(confidence, 4),
+                            "prediction_probabilities": prob_dict,
+                            "timestamp": datetime.now().isoformat()
+                        }
+                    })
+                    
+                    app.state.prediction_count += 1
+                    
+                except Exception as e:
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": f"Prediction failed: {str(e)}"
+                    })
+                    
+            elif data.get("type") == "ping":
+                await websocket.send_json({
+                    "type": "pong",
+                    "timestamp": datetime.now().isoformat()
+                })
+                
+    except WebSocketDisconnect:
+        app.state.websocket_connections.discard(websocket)
+
+# --- 11. Application Lifecycle Events ---
+@app.on_event("startup")
+async def startup_event():
+    """Initialize application on startup."""
+    logger.info("🚀 StarShield Asteroid Risk Prediction API starting up...")
+    logger.info(f"📊 Model loaded: {model is not None}")
+    logger.info(f"🏷️  Label map loaded: {label_map is not None}")
+    logger.info(f"🔧 Features available: {len(TRAINING_FEATURES) if TRAINING_FEATURES else 0}")
+    
+    if model and label_map:
+        try:
+            with open('model_metadata.json', 'r') as f:
+                metadata = json.load(f)
+            logger.info(f"📈 Training records: {metadata.get('training_records', 'unknown')}")
+            logger.info(f"🎯 Model type: {metadata.get('model_type', 'unknown')}")
+        except FileNotFoundError:
+            logger.warning("⚠️  Model metadata not found")
+    
+    logger.info("✅ Application startup complete!")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Clean up resources on shutdown."""
+    logger.info("🛑 StarShield API shutting down...")
+    
+    # Close all WebSocket connections
+    for websocket in app.state.websocket_connections.copy():
+        try:
+            await websocket.close()
+        except Exception as e:
+            logger.warning(f"Error closing WebSocket: {e}")
+    
+    logger.info(f"📊 Final statistics:")
+    logger.info(f"   Total predictions: {app.state.prediction_count}")
+    logger.info(f"   Connected clients: {len(app.state.connected_clients)}")
+    uptime = (datetime.now() - app.state.start_time).total_seconds()
+    logger.info(f"   Uptime: {uptime:.2f} seconds")
+    logger.info("👋 Shutdown complete!")
+
+# --- 12. Main Application Entry Point ---
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    
+    logger.info("🌟 Starting StarShield Asteroid Risk Prediction API")
+    
+    uvicorn.run(
+        app, 
+        host="0.0.0.0", 
+        port=8000,
+        log_level="info",
+        access_log=True
+    )

@@ -28,15 +28,26 @@ print("--- Section 1: Libraries imported successfully! ---")
 # ### 2. Load Real Data from JSON ###
 print("\n--- Section 2: Loading real asteroid data from JSON... ---")
 try:
-    with open('real_asteroid_data.json', 'r') as f:
-        data = json.load(f)
+    # Load training data specifically
+    with open('real_asteroid_data_train.json', 'r') as f:
+        train_data = json.load(f)
     
-    # Convert JSON data to DataFrame
-    df = pd.DataFrame(data)
-    print("Successfully loaded 'real_asteroid_data.json'.")
-    print(f"Loaded {len(df)} records.")
-    print("First 5 rows of your data:")
-    print(df.head())
+    # Load test data for evaluation
+    with open('real_asteroid_data_test.json', 'r') as f:
+        test_data = json.load(f)
+    
+    # Convert JSON data to DataFrames
+    train_df = pd.DataFrame(train_data)
+    test_df = pd.DataFrame(test_data)
+    
+    print("Successfully loaded training and test data.")
+    print(f"Training data: {len(train_df)} records")
+    print(f"Test data: {len(test_df)} records")
+    print("First 5 rows of training data:")
+    print(train_df.head())
+    
+    # Use training data for model development
+    df = train_df
     
     # Validate required columns
     required_columns = ['distance_au', 'velocity_kms', 'diameter_km', 'v_infinity_kms', 
@@ -108,39 +119,52 @@ for risk_level, count in df['risk_level'].value_counts().items():
     print(f"  {risk_level}: {count} ({count/len(df)*100:.1f}%)")
 
 
-# ### 4. Model Training (Using All Features from Your Data) ###
+# ### 4. Model Training (Using Pre-split Data) ###
 print("\n--- Section 4: Training the RandomForest model on your feature set... ---")
+
+# Process both training and test data with same preprocessing
+def preprocess_data(data_df):
+    """Apply preprocessing to training or test data"""
+    # Convert the text-based risk_level to a numerical format
+    risk_mapping = {"Low": 0, "Medium": 1, "High": 2, "Critical": 3}
+    data_df = data_df.copy()
+    data_df['risk_encoded'] = data_df['risk_level'].map(risk_mapping)
+    
+    # One-hot encode orbit_class
+    data_processed = pd.get_dummies(data_df, columns=['orbit_class'], prefix='class')
+    
+    return data_processed
+
+# Preprocess both datasets
+train_processed = preprocess_data(train_df)
+test_processed = preprocess_data(test_df)
+
 # Define the final feature set for the model
 features = [
     'distance_au', 'velocity_kms', 'diameter_km', 'v_infinity_kms', 'is_pha',
     'class_AMO', 'class_APO', 'class_ATE', 'class_IEO'
 ]
 
-# Ensure all feature columns exist, even if one orbit class isn't in the data
-for col in features:
-    if col not in df_processed.columns:
-        df_processed[col] = 0
-        print(f"Added missing feature column '{col}' with default value 0")
+# Ensure all feature columns exist in both datasets
+for dataset in [train_processed, test_processed]:
+    for col in features:
+        if col not in dataset.columns:
+            dataset[col] = 0
+            print(f"Added missing feature column '{col}' with default value 0")
 
-X = df_processed[features]
-y = df_processed['risk_encoded']
+# Prepare training data
+X_train = train_processed[features]
+y_train = train_processed['risk_encoded']
 
-print(f"\nFeature matrix shape: {X.shape}")
-print(f"Target vector shape: {y.shape}")
+# Prepare test data
+X_test = test_processed[features]
+y_test = test_processed['risk_encoded']
+
+print(f"\nTraining set - Features: {X_train.shape}, Labels: {y_train.shape}")
+print(f"Test set - Features: {X_test.shape}, Labels: {y_test.shape}")
 print(f"Features used: {features}")
 
-# Check if we have enough data for train/test split
-if len(df) < 10:
-    print(f"\nWARNING: Very small dataset ({len(df)} records). Consider adding more data for better model performance.")
-
-try:
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
-except ValueError as e:
-    print(f"\nERROR during train/test split: {e}")
-    print("This might be due to insufficient data for some risk levels.")
-    print("Using non-stratified split instead...")
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
+# Train the model
 model = RandomForestClassifier(n_estimators=100, max_depth=10, random_state=42, n_jobs=-1)
 model.fit(X_train, y_train)
 

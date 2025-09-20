@@ -1,0 +1,49 @@
+INFO:     Started server process [96029]
+INFO:     Waiting for application startup.
+INFO:asteroid_api:🚀 StarShield Asteroid Risk Prediction API starting up...
+INFO:asteroid_api:📊 Model loaded: True
+INFO:asteroid_api:🏷️  Label map loaded: True
+INFO:asteroid_api:🔧 Features available: 9
+INFO:asteroid_api:📈 Training records: 1040
+INFO:asteroid_api:🎯 Model type: RandomForestClassifier
+INFO:asteroid_api:✅ Application startup complete!
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+Model loaded successfully. Trained on 1040 records.
+INFO:     127.0.0.1:62880 - "GET /health/live HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62881 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62882 - "GET /model/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62883 - "POST /predict HTTP/1.1" 200 OK
+INFO:asteroid_api:Prediction b258132f-2fb6-4ddc-b9b3-5a62ffb8b63d from 127.0.0.1: Medium (confidence: 0.99, time: 36.10ms)
+INFO:asteroid_api:Processing batch 43ed036b-eae0-4b01-b6da-57b8d6d87644 with 2 asteroids from 127.0.0.1
+INFO:     127.0.0.1:62884 - "POST /predict/batch HTTP/1.1" 200 OK
+INFO:asteroid_api:Batch 43ed036b-eae0-4b01-b6da-57b8d6d87644 from 127.0.0.1: 2/2 successful, 0 failed, time: 57.98ms
+INFO:     127.0.0.1:62885 - "GET /data/train HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62888 - "GET /data/test HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62922 - "GET /health/live HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62923 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62924 - "GET /model/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62925 - "POST /predict HTTP/1.1" 200 OK
+INFO:asteroid_api:Prediction 27e98ab9-0a9b-4162-b130-e27c049a015d from 127.0.0.1: Medium (confidence: 0.99, time: 31.88ms)
+INFO:asteroid_api:Processing batch 1f67b9a4-ad49-4265-8f56-2ae781e5f5b7 with 2 asteroids from 127.0.0.1
+INFO:     127.0.0.1:62926 - "POST /predict/batch HTTP/1.1" 200 OK
+INFO:asteroid_api:Batch 1f67b9a4-ad49-4265-8f56-2ae781e5f5b7 from 127.0.0.1: 2/2 successful, 0 failed, time: 60.14ms
+INFO:     127.0.0.1:62927 - "GET /data/train HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62933 - "GET /data/test HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62992 - "POST /predict HTTP/1.1" 200 OK
+INFO:asteroid_api:Prediction 50fc9d79-e41f-4785-b672-fd282db4f400 from 127.0.0.1: Medium (confidence: 0.99, time: 41.57ms)
+INFO:asteroid_api:Processing batch 0a51f213-24d8-4699-bfa7-86b357b445e1 with 2 asteroids from 127.0.0.1
+INFO:     127.0.0.1:62996 - "POST /predict/batch HTTP/1.1" 200 OK
+INFO:asteroid_api:Batch 0a51f213-24d8-4699-bfa7-86b357b445e1 from 127.0.0.1: 2/2 successful, 0 failed, time: 65.80ms
+INFO:     127.0.0.1:62999 - "GET /data/train HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63013 - "GET /data/test HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63058 - "GET /health/live HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63059 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63060 - "GET /model/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63061 - "POST /predict HTTP/1.1" 200 OK
+INFO:asteroid_api:Prediction 00778ea2-4ace-4487-9bef-2345fe11c162 from 127.0.0.1: Medium (confidence: 0.99, time: 32.03ms)
+INFO:asteroid_api:Processing batch e9eb0020-47ce-4c55-8058-65f9846d2c7d with 2 asteroids from 127.0.0.1
+INFO:     127.0.0.1:63062 - "POST /predict/batch HTTP/1.1" 200 OK
+INFO:asteroid_api:Batch e9eb0020-47ce-4c55-8058-65f9846d2c7d from 127.0.0.1: 2/2 successful, 0 failed, time: 60.24ms
+INFO:     127.0.0.1:63063 - "GET /data/train HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63069 - "GET /data/test HTTP/1.1" 200 OK
