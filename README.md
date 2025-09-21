@@ -41,4 +41,4 @@ The frontend will be available at: http://localhost:8080
 
 
 Made by Vidur Shah, Nicolas Asanov, Arya Venkatesan, Abhimanyu Agashe
-As part of Carolina Data Challenge 2025
+as part of Carolina Data Challenge 2025
