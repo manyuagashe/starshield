@@ -383,7 +383,7 @@ async def predict_risk(
         app.state.prediction_count += 1
         
         # Convert input to DataFrame
-        input_df_raw = pd.DataFrame([asteroid.dict()])
+        input_df_raw = pd.DataFrame([asteroid.model_dump()])
         
         # Apply one-hot encoding for orbit_class (same as training)
         input_df_processed = pd.get_dummies(input_df_raw, columns=['orbit_class'], prefix='class')
@@ -450,7 +450,7 @@ async def predict_risk(
             energy_megaton=round(energy_megaton, 2),
             
             # Technical Details
-            input_features=asteroid.dict(),
+            input_features=asteroid.model_dump(),
             prediction_probabilities=prob_dict,
             model_info={
                 "model_type": "RandomForestClassifier",
@@ -497,7 +497,7 @@ async def predict_batch(
     for i, asteroid in enumerate(batch_request.asteroids):
         try:
             # Process individual prediction
-            input_df_raw = pd.DataFrame([asteroid.dict()])
+            input_df_raw = pd.DataFrame([asteroid.model_dump()])
             input_df_processed = pd.get_dummies(input_df_raw, columns=['orbit_class'], prefix='class')
             input_df_final = input_df_processed.reindex(columns=TRAINING_FEATURES, fill_value=0)
             
@@ -560,7 +560,7 @@ async def predict_batch(
                 energy_megaton=round(energy_megaton, 2),
                 
                 # Technical Details
-                input_features=asteroid.dict(),
+                input_features=asteroid.model_dump(),
                 prediction_probabilities=prob_dict,
                 model_info={
                     "model_type": "RandomForestClassifier",
@@ -661,7 +661,7 @@ def get_train_predictions(
                 item_start_time = time.time()
                 
                 # Convert input to DataFrame (same as single predict)
-                input_df_raw = pd.DataFrame([asteroid.dict()])
+                input_df_raw = pd.DataFrame([asteroid.model_dump()])
                 
                 # Apply one-hot encoding for orbit_class (same as training)
                 input_df_processed = pd.get_dummies(input_df_raw, columns=['orbit_class'], prefix='class')
@@ -718,7 +718,7 @@ def get_train_predictions(
                     energy_megaton=round(energy_megaton, 2),
                     
                     # Technical Details
-                    input_features=asteroid.dict(),
+                    input_features=asteroid.model_dump(),
                     prediction_probabilities=prob_dict,
                     model_info={
                         "model_type": "RandomForestClassifier",
@@ -870,7 +870,7 @@ def get_train_record(
         prediction_id = f"train_record_{index}"
         
         # Convert input to DataFrame
-        input_df_raw = pd.DataFrame([asteroid.dict()])
+        input_df_raw = pd.DataFrame([asteroid.model_dump()])
         input_df_processed = pd.get_dummies(input_df_raw, columns=['orbit_class'], prefix='class')
         input_df_final = input_df_processed.reindex(columns=TRAINING_FEATURES, fill_value=0)
         
@@ -933,7 +933,7 @@ def get_train_record(
             energy_megaton=round(energy_megaton, 2),
             
             # Technical Details
-            input_features=asteroid.dict(),
+            input_features=asteroid.model_dump(),
             prediction_probabilities=prob_dict,
             model_info={
                 "model_type": "RandomForestClassifier",
@@ -1002,7 +1002,7 @@ def get_test_record(
         prediction_id = f"test_record_{index}"
         
         # Convert input to DataFrame
-        input_df_raw = pd.DataFrame([asteroid.dict()])
+        input_df_raw = pd.DataFrame([asteroid.model_dump()])
         input_df_processed = pd.get_dummies(input_df_raw, columns=['orbit_class'], prefix='class')
         input_df_final = input_df_processed.reindex(columns=TRAINING_FEATURES, fill_value=0)
         
@@ -1065,7 +1065,7 @@ def get_test_record(
             energy_megaton=round(energy_megaton, 2),
             
             # Technical Details
-            input_features=asteroid.dict(),
+            input_features=asteroid.model_dump(),
             prediction_probabilities=prob_dict,
             model_info={
                 "model_type": "RandomForestClassifier",
@@ -1168,7 +1168,7 @@ def get_train_predictions(
                 item_start_time = time.time()
                 
                 # Convert input to DataFrame (same as single predict)
-                input_df_raw = pd.DataFrame([asteroid.dict()])
+                input_df_raw = pd.DataFrame([asteroid.model_dump()])
                 
                 # Apply one-hot encoding for orbit_class (same as training)
                 input_df_processed = pd.get_dummies(input_df_raw, columns=['orbit_class'], prefix='class')
@@ -1237,7 +1237,7 @@ def get_train_predictions(
                     energy_megaton=round(energy_megaton, 2),
                     
                     # Technical Details
-                    input_features=asteroid.dict(),
+                    input_features=asteroid.model_dump(),
                     prediction_probabilities=prob_dict,
                     model_info={
                         "model_type": "RandomForestClassifier",
@@ -1358,7 +1358,7 @@ def get_all_predictions(
                 item_start_time = time.time()
                 
                 # Convert input to DataFrame (same as single predict)
-                input_df_raw = pd.DataFrame([asteroid.dict()])
+                input_df_raw = pd.DataFrame([asteroid.model_dump()])
                 
                 # Apply one-hot encoding for orbit_class (same as training)
                 input_df_processed = pd.get_dummies(input_df_raw, columns=['orbit_class'], prefix='class')
@@ -1427,7 +1427,7 @@ def get_all_predictions(
                     energy_megaton=round(energy_megaton, 2),
                     
                     # Technical Details
-                    input_features=asteroid.dict(),
+                    input_features=asteroid.model_dump(),
                     prediction_probabilities=prob_dict,
                     model_info={
                         "model_type": "RandomForestClassifier",
@@ -1635,7 +1635,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     asteroid = AsteroidFeatures(**asteroid_data)
                     
                     # Make prediction
-                    input_df_raw = pd.DataFrame([asteroid.dict()])
+                    input_df_raw = pd.DataFrame([asteroid.model_dump()])
                     input_df_processed = pd.get_dummies(input_df_raw, columns=['orbit_class'], prefix='class')
                     input_df_final = input_df_processed.reindex(columns=TRAINING_FEATURES, fill_value=0)
                     

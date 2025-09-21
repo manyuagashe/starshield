@@ -3,7 +3,7 @@ import { NEOTracker } from "@/components/NEOTracker";
 import SpaceVisualization from "@/components/SpaceVisualization";
 import { SystemStatus } from "@/components/SystemStatus";
 import { useEffect, useState } from "react";
-import { getMockNEOData, NEOData } from "./lib/neoService";
+import { getMockNEOData, getNEOData, NEOData } from "./lib/neoService";
 
 const Index = () => {
   const [neoData, setNeoData] = useState<NEOData[]>([]);
@@ -12,12 +12,11 @@ const Index = () => {
   const [selectedNEO, setSelectedNEO] = useState<string | null>(null);
 
   useEffect(() => {
-    const loadMockData = () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
-        // Using mock data for PHA refactor
-        const data = getMockNEOData();
+        const data = await getNEOData();
         setNeoData(data);
       } catch (error) {
         console.error("Error loading mock NEO data:", error);
@@ -27,8 +26,7 @@ const Index = () => {
       }
     };
 
-    // Simulate async loading for loading state demonstration
-    setTimeout(loadMockData, 1000);
+    fetchData();
   }, []);
 
   return (

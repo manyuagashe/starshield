@@ -13,17 +13,17 @@ interface NEOData {
 }
 
 async function getNEOData(): Promise<NEOData[]> {
-  const response = await apiClient.get("/data/some");
+  const response = await apiClient.get("/data/all");
   console.log("Fetched NEO data:", response.data.predictions);
   return response.data.predictions.map(
     (item) =>
       ({
-        id: item.object_id,
+        id: `${item.object_id}-${Math.random()}`,
         name: item.name,
         size: item.size_km * 1000, // Convert km to meters
         distance: item.distance_km / 1_000_000,
         velocity: item.velocity_kms,
-        isPHA: Boolean(item.is_pha),
+        isPHA: Boolean(item.input_features.is_pha),
         etaClosest: item.eta_closest,
         timeToClosestApproach: item.eta_closest
           ? Math.max(

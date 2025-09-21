@@ -363,7 +363,7 @@ const SpaceVisualization: React.FC<SpaceVisualizationProps> = ({
             />
 
             {/* Orbital trails */}
-            {asteroidPositions.map((asteroid) => {
+            {asteroidPositions.map((asteroid, i) => {
               const trailPoints = [];
               for (let i = 0; i <= 20; i++) {
                 const angle = (i / 20) * 2 * Math.PI;
