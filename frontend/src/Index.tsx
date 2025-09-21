@@ -1,5 +1,6 @@
 import { HowItWorks } from "@/components/HowItWorks";
 import { NEOTracker } from "@/components/NEOTracker";
+import { RiskAssessmentMatrix } from "@/components/RiskAssessmentMatrix";
 import SpaceVisualization from "@/components/SpaceVisualization";
 import { SystemStatus } from "@/components/SystemStatus";
 import { useEffect, useState } from "react";
@@ -10,6 +11,20 @@ const Index = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedNEO, setSelectedNEO] = useState<string | null>(null);
+  const [sizeFilter, setSizeFilter] = useState<string | null>(null);
+  const [velocityFilter, setVelocityFilter] = useState<string | null>(null);
+
+  // Handle matrix cell click for filtering
+  const handleMatrixFilter = (size: string, velocity: string) => {
+    setSizeFilter(size);
+    setVelocityFilter(velocity);
+  };
+
+  // Clear filters
+  const clearFilters = () => {
+    setSizeFilter(null);
+    setVelocityFilter(null);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -61,7 +76,12 @@ const Index = () => {
             neoData={neoData}
             setSelectedNEO={setSelectedNEO}
             selectedNEO={selectedNEO}
-            className="h-full"
+          />
+          <RiskAssessmentMatrix 
+            neoData={neoData} 
+            loading={loading}
+            onFilterSelect={handleMatrixFilter}
+            activeFilters={{ size: sizeFilter, velocity: velocityFilter }}
           />
         </div>
 
@@ -73,6 +93,9 @@ const Index = () => {
             loading={loading}
             selectedNEO={selectedNEO}
             setSelectedNEO={setSelectedNEO}
+            sizeFilter={sizeFilter}
+            velocityFilter={velocityFilter}
+            onClearFilters={clearFilters}
           />
         </div>
       </div>

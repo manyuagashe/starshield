@@ -1,4 +1,8 @@
 import React, { useMemo, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Settings, Eye, EyeOff } from "lucide-react";
 import { NEOData } from "../lib/neoService";
 
 interface SpaceVisualizationProps {
@@ -26,6 +30,12 @@ const SpaceVisualization: React.FC<SpaceVisualizationProps> = ({
   className = "",
 }) => {
   const [currentWeek, setCurrentWeek] = useState(0);
+  
+  // Filter state - default: show all objects (no filters)
+  const [showNonPHA, setShowNonPHA] = useState(true);
+  const [nonPHASizeFilter, setNonPHASizeFilter] = useState("all"); // "all", "small", "medium", "large"
+  const [nonPHASpeedFilter, setNonPHASpeedFilter] = useState("all"); // "all", "slow", "medium", "fast"
+  const [showFilters, setShowFilters] = useState(false);
 
   // Visualization dimensions
   const width = 500;
@@ -70,15 +80,42 @@ const SpaceVisualization: React.FC<SpaceVisualizationProps> = ({
       return etaDate >= weekStart && etaDate < weekEnd;
     });
 
-    if (!weekAsteroids.length) return [];
+    // Apply radar scope filters
+    const filteredAsteroids = weekAsteroids.filter((neo) => {
+      // Always show PHAs
+      if (neo.isPHA) return true;
+      
+      // Filter non-PHAs based on settings
+      if (!showNonPHA) return false;
+      
+      // Size filtering for non-PHAs
+      let passesSize = true;
+      if (nonPHASizeFilter !== "all") {
+        if (nonPHASizeFilter === "small" && neo.size >= 0.5) passesSize = false;
+        if (nonPHASizeFilter === "medium" && (neo.size < 0.5 || neo.size >= 1.5)) passesSize = false;
+        if (nonPHASizeFilter === "large" && neo.size < 1.5) passesSize = false;
+      }
+      
+      // Speed filtering for non-PHAs
+      let passesSpeed = true;
+      if (nonPHASpeedFilter !== "all") {
+        if (nonPHASpeedFilter === "slow" && neo.velocity >= 15) passesSpeed = false;
+        if (nonPHASpeedFilter === "medium" && (neo.velocity < 15 || neo.velocity >= 25)) passesSpeed = false;
+        if (nonPHASpeedFilter === "fast" && neo.velocity < 25) passesSpeed = false;
+      }
+      
+      return passesSize && passesSpeed;
+    });
+
+    if (!filteredAsteroids.length) return [];
 
     // Find min/max distances for normalization
-    const distances = weekAsteroids.map((neo) => neo.distance);
+    const distances = filteredAsteroids.map((neo) => neo.distance);
     const minDistance = Math.min(...distances);
     const maxDistance = Math.max(...distances);
 
     // Find min/max sizes for normalization
-    const sizes = weekAsteroids.map((neo) => neo.size);
+    const sizes = filteredAsteroids.map((neo) => neo.size);
     const minSize = Math.min(...sizes);
     const maxSize = Math.max(...sizes);
 
@@ -104,7 +141,7 @@ const SpaceVisualization: React.FC<SpaceVisualizationProps> = ({
 
     const positions: AsteroidPosition[] = [];
 
-    weekAsteroids.forEach((neo, index) => {
+    filteredAsteroids.forEach((neo, index) => {
       // Normalize closest approach distance to radius
       const normalizedDistance =
         (neo.distance - minDistance) / (maxDistance - minDistance);
@@ -117,7 +154,7 @@ const SpaceVisualization: React.FC<SpaceVisualizationProps> = ({
         (etaDate.getTime() - weekStart.getTime()) / (1000 * 60 * 60); // hours
 
       // Assign each asteroid a unique orbital angle based on its index
-      const baseAngle = (index / weekAsteroids.length) * 2 * Math.PI;
+      const baseAngle = (index / filteredAsteroids.length) * 2 * Math.PI;
       // Add some orbital progression based on time within the week
       const orbitalSpeed = 0.1 + (neo.velocity / 100) * 0.05; // Faster objects orbit faster
       let currentAngle = baseAngle + timeFromWeekStart * orbitalSpeed;
@@ -191,6 +228,9 @@ const SpaceVisualization: React.FC<SpaceVisualizationProps> = ({
     centerX,
     centerY,
     earthRadius,
+    showNonPHA,
+    nonPHASizeFilter,
+    nonPHASpeedFilter,
   ]);
 
   const handleAsteroidClick = (asteroidId: string) => {
@@ -222,6 +262,100 @@ const SpaceVisualization: React.FC<SpaceVisualizationProps> = ({
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Filter Controls */}
+        <div className="px-3 py-2 border-b border-green-500/30">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+                className="h-6 px-2 text-xs text-green-400 hover:bg-green-400/10 hover:text-green-300"
+              >
+                <Settings className="h-3 w-3 mr-1" />
+                Filters
+              </Button>
+              
+              {/* Quick filter indicators */}
+              <div className="flex items-center gap-1 text-xs">
+                <Badge variant="outline" className="h-5 px-1 text-xs bg-red-500/20 text-red-400 border-red-500/30">
+                  PHA: Always
+                </Badge>
+                {showNonPHA && (
+                  <Badge variant="outline" className="h-5 px-1 text-xs bg-blue-500/20 text-blue-400 border-blue-500/30">
+                    Non-PHA: {nonPHASizeFilter === "all" && nonPHASpeedFilter === "all" ? "All" : `${nonPHASizeFilter} & ${nonPHASpeedFilter}`}
+                  </Badge>
+                )}
+                {!showNonPHA && (
+                  <Badge variant="outline" className="h-5 px-1 text-xs bg-gray-500/20 text-gray-400 border-gray-500/30">
+                    Non-PHA: Hidden
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Expandable filter options */}
+          {showFilters && (
+            <div className="mt-3 space-y-3 p-3 bg-background/50 rounded border border-primary/20">
+              <div className="grid grid-cols-3 gap-3">
+                {/* Non-PHA visibility toggle */}
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground font-mono">NON-PHA DISPLAY</label>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowNonPHA(!showNonPHA)}
+                    className={`w-full h-7 text-xs ${showNonPHA 
+                      ? 'bg-green-500/10 text-green-400 border-green-500/30 hover:bg-green-500/20' 
+                      : 'bg-gray-500/10 text-gray-400 border-gray-500/30 hover:bg-gray-500/20'
+                    }`}
+                  >
+                    {showNonPHA ? <Eye className="h-3 w-3 mr-1" /> : <EyeOff className="h-3 w-3 mr-1" />}
+                    {showNonPHA ? 'Visible' : 'Hidden'}
+                  </Button>
+                </div>
+
+                {/* Size filter for non-PHAs */}
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground font-mono">SIZE FILTER</label>
+                  <Select value={nonPHASizeFilter} onValueChange={setNonPHASizeFilter} disabled={!showNonPHA}>
+                    <SelectTrigger className="h-7 text-xs bg-background/50 border-primary/30">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Sizes</SelectItem>
+                      <SelectItem value="small">Small (&lt;0.5km)</SelectItem>
+                      <SelectItem value="medium">Medium (0.5-1.5km)</SelectItem>
+                      <SelectItem value="large">Large (≥1.5km)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Speed filter for non-PHAs */}
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground font-mono">SPEED FILTER</label>
+                  <Select value={nonPHASpeedFilter} onValueChange={setNonPHASpeedFilter} disabled={!showNonPHA}>
+                    <SelectTrigger className="h-7 text-xs bg-background/50 border-primary/30">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Speeds</SelectItem>
+                      <SelectItem value="slow">Slow (&lt;15 km/s)</SelectItem>
+                      <SelectItem value="medium">Medium (15-25 km/s)</SelectItem>
+                      <SelectItem value="fast">Fast (≥25 km/s)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <div className="text-xs text-muted-foreground text-center pt-2 border-t border-primary/20">
+                PHAs are always displayed • Filters apply only to non-hazardous objects
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Radar Display */}
@@ -361,6 +495,17 @@ const SpaceVisualization: React.FC<SpaceVisualizationProps> = ({
               stroke="rgba(34, 197, 94, 0.4)"
               strokeWidth="1"
             />
+
+            {/* Detection Range Indicator */}
+            <text
+              x={width - 15}
+              y={25}
+              textAnchor="end"
+              className="text-xs font-mono fill-green-400/80"
+              style={{ fontSize: '10px' }}
+            >
+              MAX RANGE: 0.25 AU
+            </text>
 
             {/* Orbital trails */}
             {asteroidPositions.map((asteroid, i) => {
@@ -542,7 +687,7 @@ const SpaceVisualization: React.FC<SpaceVisualizationProps> = ({
               </span>
             </div>
             <div className="text-xs text-muted-foreground">
-              WEEK {currentWeek + 1} OF {timeRange.weeks}
+              WEEK {currentWeek + 1} OF {timeRange.weeks} • {asteroidPositions.length} objects visible
             </div>
           </div>
 

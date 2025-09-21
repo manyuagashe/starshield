@@ -1,4 +1,5 @@
 import { NEOData } from "@/lib/neoService";
+import { Badge } from "@/components/ui/badge";
 import {
   ArrowUpDown,
   ChevronDown,
@@ -25,7 +26,6 @@ type SortField =
   | "size"
   | "distance"
   | "velocity"
-  | "impactProbability"
   | "timeToClosestApproach"
   | "isPHA";
 type SortDirection = "asc" | "desc";
@@ -34,15 +34,24 @@ export const NEOTracker = ({
   loading,
   selectedNEO,
   setSelectedNEO,
+  sizeFilter,
+  velocityFilter,
+  onClearFilters,
 }: {
   neoData: NEOData[];
   loading: boolean;
   selectedNEO: string | null;
   setSelectedNEO: (id: string | null) => void;
+  sizeFilter?: string | null;
+  velocityFilter?: string | null;
+  onClearFilters?: () => void;
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortField, setSortField] = useState<SortField>("impactProbability");
+  const [sortField, setSortField] = useState<SortField>("isPHA");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [itemsToShow, setItemsToShow] = useState(12);
+
+  const ITEMS_PER_PAGE = 12;
 
   useEffect(() => {
     console.log("selectedNEO changed:", selectedNEO);
@@ -52,6 +61,15 @@ export const NEOTracker = ({
     }
   }, [selectedNEO, neoData]);
 
+  // Reset pagination when filters change
+  useEffect(() => {
+    setItemsToShow(ITEMS_PER_PAGE);
+  }, [searchTerm, sizeFilter, velocityFilter, sortField, sortDirection]);
+
+  const loadMoreItems = () => {
+    setItemsToShow(prev => prev + ITEMS_PER_PAGE);
+  };
+
   const filteredAndSortedData = useMemo(() => {
     let filtered = neoData;
 
@@ -60,6 +78,26 @@ export const NEOTracker = ({
       filtered = filtered.filter((neo) =>
         neo.name.toLowerCase().includes(searchTerm.toLowerCase())
       );
+    }
+
+    // Apply size filter
+    if (sizeFilter) {
+      filtered = filtered.filter((neo) => {
+        if (sizeFilter === "Small") return neo.size < 0.5;
+        if (sizeFilter === "Medium") return neo.size >= 0.5 && neo.size < 1.5;
+        if (sizeFilter === "Large") return neo.size >= 1.5;
+        return true;
+      });
+    }
+
+    // Apply velocity filter
+    if (velocityFilter) {
+      filtered = filtered.filter((neo) => {
+        if (velocityFilter === "Slow") return neo.velocity < 15;
+        if (velocityFilter === "Medium") return neo.velocity >= 15 && neo.velocity < 25;
+        if (velocityFilter === "Fast") return neo.velocity >= 25;
+        return true;
+      });
     }
 
     // Apply sorting
@@ -84,10 +122,6 @@ export const NEOTracker = ({
           aValue = a.velocity;
           bValue = b.velocity;
           break;
-        case "impactProbability":
-          aValue = a.impactProbability;
-          bValue = b.impactProbability;
-          break;
         case "timeToClosestApproach":
           aValue = a.timeToClosestApproach;
           bValue = b.timeToClosestApproach;
@@ -97,8 +131,8 @@ export const NEOTracker = ({
           bValue = b.isPHA ? 1 : 0;
           break;
         default:
-          aValue = a.impactProbability;
-          bValue = b.impactProbability;
+          aValue = a.isPHA ? 1 : 0;
+          bValue = b.isPHA ? 1 : 0;
       }
 
       if (typeof aValue === "string" && typeof bValue === "string") {
@@ -109,7 +143,7 @@ export const NEOTracker = ({
         return sortDirection === "asc" ? comparison : -comparison;
       }
     });
-  }, [neoData, searchTerm, sortField, sortDirection]);
+  }, [neoData, searchTerm, sortField, sortDirection, sizeFilter, velocityFilter]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -161,7 +195,10 @@ export const NEOTracker = ({
           NEAR EARTH OBJECT TRACKER
         </h2>
         <div className="text-xs text-muted-foreground">
-          {filteredAndSortedData.length} of {neoData.length} objects
+          {filteredAndSortedData.length > itemsToShow 
+            ? `Showing ${itemsToShow} of ${filteredAndSortedData.length} • Total: ${neoData.length}`
+            : `${filteredAndSortedData.length} of ${neoData.length} objects`
+          }
         </div>
       </div>
 
@@ -199,9 +236,6 @@ export const NEOTracker = ({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="isPHA">PHA Status</SelectItem>
-              <SelectItem value="impactProbability">
-                Impact Probability
-              </SelectItem>
               <SelectItem value="size">Size</SelectItem>
               <SelectItem value="distance">Distance</SelectItem>
               <SelectItem value="velocity">Velocity</SelectItem>
@@ -236,6 +270,34 @@ export const NEOTracker = ({
         </div>
       </div>
 
+      {/* Active Filter Indicators */}
+      {(sizeFilter || velocityFilter) && (
+        <div className="flex items-center gap-2 mb-3 p-2 bg-primary/10 rounded-lg border border-primary/20">
+          <span className="text-xs text-muted-foreground font-mono">ACTIVE FILTERS:</span>
+          {sizeFilter && (
+            <Badge variant="outline" className="text-xs bg-blue-500/20 text-blue-400 border-blue-500/30">
+              Size: {sizeFilter}
+            </Badge>
+          )}
+          {velocityFilter && (
+            <Badge variant="outline" className="text-xs bg-green-500/20 text-green-400 border-green-500/30">
+              Velocity: {velocityFilter}
+            </Badge>
+          )}
+          {onClearFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClearFilters}
+              className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3 w-3 mr-1" />
+              Clear
+            </Button>
+          )}
+        </div>
+      )}
+
       <div className="space-y-2">
         {loading ? (
           <div className="neo-tracking-item">
@@ -258,7 +320,7 @@ export const NEOTracker = ({
           </div>
         ) : (
           <>
-            {filteredAndSortedData.map((neo) => (
+            {filteredAndSortedData.slice(0, itemsToShow).map((neo) => (
               <div
                 key={neo.id}
                 className="neo-tracking-item"
@@ -313,6 +375,27 @@ export const NEOTracker = ({
                 </div>
               </div>
             ))}
+
+            {/* Load More Button */}
+            {filteredAndSortedData.length > itemsToShow && (
+              <div className="flex justify-center pt-3">
+                <Button
+                  variant="outline"
+                  onClick={loadMoreItems}
+                  className="gap-2 bg-background/50 border-primary/30 hover:bg-primary/10 text-sm"
+                >
+                  <span>Show {Math.min(ITEMS_PER_PAGE, filteredAndSortedData.length - itemsToShow)} more</span>
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+
+            {/* Show pagination info */}
+            {filteredAndSortedData.length > ITEMS_PER_PAGE && (
+              <div className="text-center text-xs text-muted-foreground pt-2 border-t border-primary/20 mt-3">
+                Showing {Math.min(itemsToShow, filteredAndSortedData.length)} of {filteredAndSortedData.length} objects
+              </div>
+            )}
 
             {filteredAndSortedData.length === 0 && neoData.length > 0 && (
               <div className="text-center py-8 text-muted-foreground">
