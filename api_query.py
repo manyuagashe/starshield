@@ -4,7 +4,7 @@ import json
 from typing import Tuple, Dict, Any, List
 from sklearn.model_selection import train_test_split
 
-def fetch_asteroid_data(url: str = "https://ssd-api.jpl.nasa.gov/cad.api?diameter=true&date-min=2025-09-11&date-max=2025-09-21&pha=true") -> Dict[str, Any]:
+def fetch_asteroid_data(url: str = "https://ssd-api.jpl.nasa.gov/cad.api?diameter=true&date-min=2025-04-11&date-max=2025-09-21&pha=true") -> Dict[str, Any]:
     """
     Fetch asteroid data from NASA's Small-Body Database API
     
