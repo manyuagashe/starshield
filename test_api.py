@@ -172,6 +172,37 @@ def test_test_data_endpoint():
         print(f"   ❌ Test data test failed: {e}")
         return False
 
+
+def test_all_data_endpoint():
+    """Test GET endpoint for combined (all) data predictions"""
+    print("\n🌐 Testing All Data Endpoint (/data/all)...")
+    
+    try:
+        response = requests.get(f"{base_url}/data/all")
+        all_result = response.json()
+        print(f"   All Data: {response.status_code}")
+        print(f"   Total Predictions: {all_result.get('total_predictions')}")
+        print(f"   Successful: {all_result.get('successful_predictions')}")
+        print(f"   Failed: {all_result.get('failed_predictions')}")
+        print(f"   Processing Time: {all_result.get('total_processing_time_ms')}ms")
+        
+        if all_result.get('predictions'):
+            # Show top-3 risk distribution
+            risk_counts = {}
+            for pred in all_result['predictions']:
+                risk = pred.get('predicted_risk_level')
+                risk_counts[risk] = risk_counts.get(risk, 0) + 1
+            
+            print(f"   Risk Distribution (top entries):")
+            for risk, count in list(risk_counts.items())[:5]:
+                percentage = (count / len(all_result['predictions'])) * 100
+                print(f"     {risk}: {count} ({percentage:.1f}%)")
+
+        return all_result
+    except Exception as e:
+        print(f"   ❌ All data test failed: {e}")
+        return False
+
 def evaluate_accuracy(test_predictions):
     """Evaluate model accuracy by comparing predictions to actual labels"""
     print("\n🎯 Evaluating Model Accuracy...")

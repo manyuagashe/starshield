@@ -12,6 +12,7 @@ import logging
 from datetime import datetime
 from typing import Literal, Dict, Any, Optional, List
 import uvicorn
+from api_query import get_train_test_data
 
 # --- 1. Configure Logging ---
 logging.basicConfig(level=logging.INFO)
@@ -585,8 +586,13 @@ def get_train_predictions(
     
     try:
         # Load training data
-        with open('real_asteroid_data_train.json', 'r') as f:
-            train_data = json.load(f)
+        try:
+            train_data, _ = get_train_test_data()
+        except Exception as e:
+            print(f"Failed to fetch data from API: {e}")
+            # Fallback to static files if API fails
+            with open('real_asteroid_data_train.json', 'r') as f:
+                train_data = json.load(f)
         
         # Convert to batch prediction format
         asteroids = []
@@ -864,8 +870,13 @@ def get_train_record(
     
     try:
         # Load training data
-        with open('real_asteroid_data_train.json', 'r') as f:
-            train_data = json.load(f)
+        try:
+            train_data, _ = get_train_test_data()
+        except Exception as e:
+            print(f"Failed to fetch data from API: {e}")
+            # Fallback to static files if API fails
+            with open('real_asteroid_data_train.json', 'r') as f:
+                train_data = json.load(f)
         
         # Validate index
         if index < 0 or index >= len(train_data):
@@ -1111,27 +1122,43 @@ def get_test_record(
         raise HTTPException(status_code=500, detail=f"Error processing test record: {str(e)}")
 
 
-@app.get("/data/all", response_model=BatchPredictionResponse)
-def get_all_predictions(
+@app.get("/data/train", response_model=BatchPredictionResponse)
+def get_train_predictions(
     background_tasks: BackgroundTasks, 
     client_ip: str = Depends(track_connection),
     model_deps: Dict = Depends(get_model_dependency)
 ):
     """
-    Get predictions for all asteroids from both training and test datasets combined.
-    Returns the complete dataset (1300 records) with predictions.
+    Get predictions for all asteroids in the training dataset.
     """
     import time
-    batch_id = f"all_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    batch_id = f"train_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     
     try:
-        # Load both training and test data
-        with open('real_asteroid_data_train.json', 'r') as f:
-            train_data = json.load(f)
+        # Try to load training data from API first
+        train_data = None
+        try:
+            train_data, test_data = get_train_test_data()
+            logger.info(f"Successfully loaded {len(train_data)} training records from API")
+        except Exception as api_error:
+            logger.warning(f"Failed to fetch data from API: {api_error}")
+            
+            # Fallback to static files if API fails
+            try:
+                with open('real_asteroid_data_train.json', 'r') as f:
+                    train_data = json.load(f)
+                logger.info(f"Loaded {len(train_data)} training records from static file")
+            except FileNotFoundError:
+                logger.error("No training data available - neither API nor static file worked")
+                raise HTTPException(
+                    status_code=503, 
+                    detail="Training data not available. Please ensure either API is working or real_asteroid_data_train.json exists"
+                )
         
-        with open('real_asteroid_data_test.json', 'r') as f:
-            test_data = json.load(f)
+        if not train_data:
+            raise HTTPException(status_code=503, detail="No training data available")
         
+        # Rest of your existing code...
         # Combine datasets
         all_data = []
         
