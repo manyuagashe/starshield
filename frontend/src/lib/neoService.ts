@@ -1,3 +1,5 @@
+import apiClient from "./apiClient";
+
 interface NEOData {
   id: string;
   name: string;
@@ -7,10 +9,28 @@ interface NEOData {
   threatLevel: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
   timeToClosestApproach: number; // hours
   impactProbability: number; // percentage
-  classification: string;
 }
 
-function getNEOData(): NEOData[] {
+async function getNEOData(): Promise<NEOData[]> {
+  const response = await apiClient.get("http://localhost:8000/data/some");
+  console.log("Fetched NEO data:", response.data.predictions);
+  return response.data.predictions.map(
+    (item) =>
+      ({
+        id: item.object_id,
+        name: item.name,
+        size: item.size_km,
+        distance: item.distance_km / 1_000_000,
+        velocity: item.velocity_kms,
+        threatLevel:
+          item.predicted_risk_level.toUpperCase() as NEOData["threatLevel"],
+        timeToClosestApproach: item.time_to_approach_hours ?? -1,
+        impactProbability: item.impact_probability,
+      } satisfies NEOData)
+  );
+}
+
+function getMockNEOData(): NEOData[] {
   const objects = [
     {
       name: "2024-XK47",
@@ -59,7 +79,7 @@ function getNEOData(): NEOData[] {
       classification: "Amor",
       size: 1.0,
       baseDistance: 0.07,
-    }
+    },
   ];
 
   return objects.map((obj, index) => {
@@ -93,5 +113,5 @@ function getNEOData(): NEOData[] {
   });
 }
 
-export { getNEOData };
+export { getMockNEOData, getNEOData };
 export type { NEOData };

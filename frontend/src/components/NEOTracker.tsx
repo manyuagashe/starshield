@@ -3,11 +3,16 @@ import { useMemo } from "react";
 import { ThreatIndicator } from "./ThreatIndicator";
 
 export const NEOTracker = ({ neoData }: { neoData: NEOData[] }) => {
-  const orderedNEOData = useMemo(
-    () =>
-      [...neoData].sort((a, b) => b.impactProbability - a.impactProbability),
-    [neoData]
-  );
+  const orderedNEOData = useMemo(() => {
+    const threatLevelOrder = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
+    return [...neoData].sort((a, b) => {
+      const threatComparison =
+        threatLevelOrder[b.threatLevel] - threatLevelOrder[a.threatLevel];
+      if (threatComparison !== 0) return threatComparison;
+
+      return b.impactProbability - a.impactProbability;
+    });
+  }, [neoData]);
 
   const formatDistance = (distance: number) => {
     return (distance * 149.6).toFixed(3); // Convert AU to million km
@@ -35,12 +40,9 @@ export const NEOTracker = ({ neoData }: { neoData: NEOData[] }) => {
               <div className="flex items-center gap-3">
                 <ThreatIndicator level={neo.threatLevel} />
                 <span className="font-bold text-primary">{neo.name}</span>
-                <span className="text-xs text-muted-foreground">
-                  [{neo.classification}]
-                </span>
               </div>
               <div className="text-xs text-warning">
-                IMPACT PROB: {neo.impactProbability.toFixed(3)}%
+                IMPACT PROB: {neo.impactProbability.toFixed(9)}%
               </div>
             </div>
 

@@ -6,7 +6,16 @@ import { getNEOData, NEOData } from "./lib/neoService";
 const Index = () => {
   const [neoData, setNeoData] = useState<NEOData[]>([]);
   useEffect(() => {
-    setNeoData(getNEOData());
+    const fetchData = async () => {
+      try {
+        const data = await getNEOData();
+        console.log(data);
+        setNeoData(data);
+      } catch (error) {
+        console.error("Error fetching NEO data:", error);
+      }
+    };
+    fetchData();
   }, []);
 
   return (
