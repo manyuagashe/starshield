@@ -5,7 +5,6 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import {
   Activity,
-  AlertTriangle,
   BarChart3,
   Brain,
   CheckCircle,
@@ -20,14 +19,12 @@ import {
   Radio,
   Satellite,
   Shield,
-  Sparkles,
   Target,
   TrendingUp,
   Zap,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NEOData } from "../lib/neoService";
-import { RiskAssessmentMatrix } from "./RiskAssessmentMatrix";
 import "./HowItWorks.css";
 
 interface TutorialStep {
@@ -215,7 +212,9 @@ export const HowItWorks = ({
           <div className="text-center space-y-2 p-3 bg-gradient-to-r from-orange-500/10 to-purple-500/10 rounded-lg border border-orange-500/30">
             <div className="flex items-center justify-center gap-2">
               <Brain className="h-5 w-5 text-orange-400" />
-              <span className="font-bold text-base">Random Forest Algorithm</span>
+              <span className="font-bold text-base">
+                Random Forest Algorithm
+              </span>
             </div>
             <p className="text-xs text-muted-foreground max-w-2xl mx-auto leading-relaxed">
               Our model uses an ensemble of decision trees that each analyze
@@ -276,9 +275,9 @@ export const HowItWorks = ({
           {/* Pipeline Timeline - Compact */}
           <div className="relative pb-2">
             {/* Pipeline Flow Line - positioned at icon level */}
-            <div className="absolute top-6 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-400 to-orange-400 opacity-30"></div>
+            <div className="absolute top-5 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-400 to-orange-400 opacity-30"></div>
             <div
-              className="absolute top-6 left-0 h-0.5 bg-gradient-to-r from-blue-400 to-orange-400 transition-all duration-1000"
+              className="absolute top-5 left-0 h-0.5 bg-gradient-to-r from-blue-400 to-orange-400 transition-all duration-1000"
               style={{
                 width:
                   simulationStep >= 3
@@ -463,7 +462,8 @@ export const HowItWorks = ({
         <div className="space-y-3 w-full max-w-3xl">
           <div className="text-center mb-3">
             <p className="text-sm text-muted-foreground mb-2">
-              We retrieve real-time asteroid data from NASA's CAD (Close Approach Data) API
+              We retrieve real-time asteroid data from NASA's CAD (Close
+              Approach Data) API
             </p>
             <a
               href="https://api.nasa.gov/"
@@ -531,7 +531,8 @@ export const HowItWorks = ({
             </div>
             <div className="text-center mt-2">
               <p className="text-xs text-muted-foreground">
-                Our Random Forest model shows higher accuracy for identifying true PHA objects compared to safe asteroids
+                Our Random Forest model shows higher accuracy for identifying
+                true PHA objects compared to safe asteroids
               </p>
             </div>
           </div>
@@ -548,25 +549,27 @@ export const HowItWorks = ({
           <div className="bg-gradient-to-r from-green-500/10 to-red-500/10 p-3 rounded-lg border border-primary/30">
             <div className="flex items-center gap-2 mb-3">
               <Radio className="h-4 w-4 text-blue-400" />
-              <div className="font-semibold text-sm">
-                Radar Scope
-              </div>
+              <div className="font-semibold text-sm">Radar Scope</div>
               <Badge className="text-xs bg-green-500/20 text-green-400 border-green-500/30">
                 Interactive Visualization
               </Badge>
             </div>
             <div className="text-xs text-muted-foreground space-y-2">
               <div>
-                • <strong>Timeline Display:</strong> Asteroids appear only during their actual ETA week
+                • <strong>Timeline Display:</strong> Asteroids appear only
+                during their actual ETA week
               </div>
               <div>
-                • <strong>Detection Range:</strong> Limited to 0.25 AU from Earth for optimal tracking precision
+                • <strong>Detection Range:</strong> Limited to 0.25 AU from
+                Earth for optimal tracking precision
               </div>
               <div>
-                • <strong>Color Coding:</strong> Red dots indicate PHA (Potentially Hazardous Asteroids), green dots show safe objects
+                • <strong>Color Coding:</strong> Red dots indicate PHA
+                (Potentially Hazardous Asteroids), green dots show safe objects
               </div>
               <div>
-                • <strong>Trajectory Prediction:</strong> Click any asteroid to view its predicted path as a tangential line
+                • <strong>Trajectory Prediction:</strong> Click any asteroid to
+                view its predicted path as a tangential line
               </div>
             </div>
           </div>
@@ -584,13 +587,16 @@ export const HowItWorks = ({
             </div>
             <div className="text-xs text-muted-foreground space-y-1">
               <div>
-                • <strong>Purpose:</strong> Visual heat map analysis of PHA distribution across size and velocity categories
+                • <strong>Purpose:</strong> Visual heat map analysis of PHA
+                distribution across size and velocity categories
               </div>
               <div>
-                • <strong>Heat Map:</strong> Color intensity shows PHA percentage risk in each category combination
+                • <strong>Heat Map:</strong> Color intensity shows PHA
+                percentage risk in each category combination
               </div>
               <div>
-                • <strong>Interactive:</strong> Click on cells for to filter the list to asteroids in that category
+                • <strong>Interactive:</strong> Click on cells for to filter the
+                list to asteroids in that category
               </div>
             </div>
           </div>
@@ -614,7 +620,8 @@ export const HowItWorks = ({
                 by any parameter by clicking on it
               </div>
               <div>
-                • <strong>Data View:</strong> Size, velocity, distance, PHA status, and approach time
+                • <strong>Data View:</strong> Size, velocity, distance, PHA
+                status, and approach time
               </div>
             </div>
           </div>
@@ -628,7 +635,8 @@ export const HowItWorks = ({
             </div>
             <div className="text-xs text-muted-foreground space-y-1">
               <div>
-                • <strong>Purpose:</strong> General overview of the STAR SHIELD system
+                • <strong>Purpose:</strong> General overview of the STAR SHIELD
+                system
               </div>
               <div>
                 • <strong>Assessment:</strong> Overall threat environment
@@ -671,20 +679,33 @@ export const HowItWorks = ({
               </div>
 
               <div className="space-y-2">
-                <div className="text-lg font-bold text-green-400">Tutorial Complete! 🎉</div>
-                <div className="text-sm text-muted-foreground max-w-md mx-auto">
-                  You're now ready to explore STAR SHIELD's Near Earth Object tracking and threat assessment capabilities.
+                <div className="text-lg font-bold text-green-400">
+                  Tutorial Complete! 🎉
                 </div>
-                
+                <div className="text-sm text-muted-foreground max-w-md mx-auto">
+                  You're now ready to explore STAR SHIELD's Near Earth Object
+                  tracking and threat assessment capabilities.
+                </div>
+
                 {/* Quick reference */}
                 <div className="grid grid-cols-2 gap-3 mt-4 text-xs">
                   <div className="p-2 bg-background/50 rounded border border-primary/20">
-                    <div className="text-blue-400 font-semibold mb-1">Interactive Features</div>
-                    <div className="text-muted-foreground">• Click asteroids in radar • Filter by matrix cells • Sort tracking table</div>
+                    <div className="text-blue-400 font-semibold mb-1">
+                      Interactive Features
+                    </div>
+                    <div className="text-muted-foreground">
+                      • Click asteroids in radar • Filter by matrix cells • Sort
+                      tracking table
+                    </div>
                   </div>
                   <div className="p-2 bg-background/50 rounded border border-primary/20">
-                    <div className="text-green-400 font-semibold mb-1">Navigation Tips</div>
-                    <div className="text-muted-foreground">• Use search to find objects • Check system status • Monitor PHA alerts</div>
+                    <div className="text-green-400 font-semibold mb-1">
+                      Navigation Tips
+                    </div>
+                    <div className="text-muted-foreground">
+                      • Use search to find objects • Check system status •
+                      Monitor PHA alerts
+                    </div>
                   </div>
                 </div>
               </div>
