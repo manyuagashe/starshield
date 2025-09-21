@@ -13,6 +13,8 @@ interface AsteroidPosition {
   size: number;
   isPHA: boolean;
   data: NEOData;
+  closestApproachRadius: number;
+  opacity: number;
 }
 
 const SpaceVisualization: React.FC<SpaceVisualizationProps> = ({
@@ -20,6 +22,7 @@ const SpaceVisualization: React.FC<SpaceVisualizationProps> = ({
   className = "",
 }) => {
   const [selectedAsteroid, setSelectedAsteroid] = useState<string | null>(null);
+  const [currentWeek, setCurrentWeek] = useState(0);
 
   // Visualization dimensions
   const width = 500;
@@ -28,60 +31,170 @@ const SpaceVisualization: React.FC<SpaceVisualizationProps> = ({
   const centerY = height / 2;
   const earthRadius = 20;
 
-  // Calculate normalized positions and sizes for asteroids
+  // Calculate time range and weeks from data
+  const timeRange = useMemo(() => {
+    if (!neoData.length)
+      return { weeks: 1, startDate: new Date(), endDate: new Date() };
+
+    const dates = neoData.map((neo) => new Date(neo.etaClosest));
+    const startDate = new Date(Math.min(...dates.map((d) => d.getTime())));
+    const endDate = new Date(Math.max(...dates.map((d) => d.getTime())));
+
+    // Calculate number of weeks between start and end
+    const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+    const totalWeeks = Math.max(
+      1,
+      Math.ceil((endDate.getTime() - startDate.getTime()) / msPerWeek)
+    );
+
+    return { weeks: totalWeeks, startDate, endDate };
+  }, [neoData]);
+
+  // Calculate asteroids for current week
   const asteroidPositions = useMemo((): AsteroidPosition[] => {
     if (!neoData.length) return [];
 
+    const now = new Date();
+    const weekStart = new Date(timeRange.startDate);
+    weekStart.setDate(weekStart.getDate() + currentWeek * 7);
+
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+
+    // Filter asteroids for this week
+    const weekAsteroids = neoData.filter((neo) => {
+      const etaDate = new Date(neo.etaClosest);
+      return etaDate >= weekStart && etaDate < weekEnd;
+    });
+
+    if (!weekAsteroids.length) return [];
+
     // Find min/max distances for normalization
-    const distances = neoData.map((neo) => neo.distance);
+    const distances = weekAsteroids.map((neo) => neo.distance);
     const minDistance = Math.min(...distances);
     const maxDistance = Math.max(...distances);
 
     // Find min/max sizes for normalization
-    const sizes = neoData.map((neo) => neo.size);
+    const sizes = weekAsteroids.map((neo) => neo.size);
     const minSize = Math.min(...sizes);
     const maxSize = Math.max(...sizes);
 
-    // Available radius range (from Earth edge to visualization edge)
-    const minRadius = earthRadius + 15; // Buffer from Earth
-    const maxRadius = Math.min(width, height) / 2 - 30; // Buffer from edge
+    // Available radius range (closest approach distance from Earth)
+    const minRadius = earthRadius + 15; // Increased buffer from Earth (was +10)
+    const maxRadius = Math.min(width, height) / 2 - 30; // Maximum distance
 
-    return neoData.map((neo, index) => {
-      // Normalize distance to radius (logarithmic scale for better distribution)
+    // Collision detection function
+    const checkCollision = (
+      x: number,
+      y: number,
+      size: number,
+      existingPositions: AsteroidPosition[]
+    ): boolean => {
+      const minDistance = size * 2; // Minimum distance between asteroid centers
+      return existingPositions.some((existing) => {
+        const dx = x - existing.x;
+        const dy = y - existing.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        return distance < minDistance;
+      });
+    };
+
+    const positions: AsteroidPosition[] = [];
+
+    weekAsteroids.forEach((neo, index) => {
+      // Normalize closest approach distance to radius
       const normalizedDistance =
         (neo.distance - minDistance) / (maxDistance - minDistance);
-      const logDistance = Math.log10(1 + normalizedDistance * 9); // Log scale 1-10
-      const radius = minRadius + (logDistance / 1) * (maxRadius - minRadius);
+      const closestApproachRadius =
+        minRadius + normalizedDistance * (maxRadius - minRadius);
 
-      // Distribute asteroids in a circle around Earth
-      // Use index-based angle with some randomization for natural look
-      const baseAngle = (index / neoData.length) * 2 * Math.PI;
-      const angleVariation = Math.sin(index * 0.7) * 0.3; // Small variation
-      const angle = baseAngle + angleVariation;
+      // Calculate time relative to week start
+      const etaDate = new Date(neo.etaClosest);
+      const timeFromWeekStart =
+        (etaDate.getTime() - weekStart.getTime()) / (1000 * 60 * 60); // hours
 
-      // Calculate position
-      const x = centerX + radius * Math.cos(angle);
-      const y = centerY + radius * Math.sin(angle);
+      // Assign each asteroid a unique orbital angle based on its index
+      const baseAngle = (index / weekAsteroids.length) * 2 * Math.PI;
+      // Add some orbital progression based on time within the week
+      const orbitalSpeed = 0.1 + (neo.velocity / 100) * 0.05; // Faster objects orbit faster
+      let currentAngle = baseAngle + timeFromWeekStart * orbitalSpeed;
 
-      // Normalize size (3-15 pixels range)
+      // Calculate initial position
+      let x = centerX + closestApproachRadius * Math.cos(currentAngle);
+      let y = centerY + closestApproachRadius * Math.sin(currentAngle);
+
+      // Normalize size
       const normalizedSize =
         minSize === maxSize
           ? 6
           : 3 + ((neo.size - minSize) / (maxSize - minSize)) * 12;
 
-      return {
+      // Check for collisions and adjust angle if needed
+      let attempts = 0;
+      const maxAttempts = 36; // Try up to 36 different angles (10 degree increments)
+      while (
+        checkCollision(x, y, normalizedSize, positions) &&
+        attempts < maxAttempts
+      ) {
+        currentAngle += Math.PI / 18; // 10 degrees
+        x = centerX + closestApproachRadius * Math.cos(currentAngle);
+        y = centerY + closestApproachRadius * Math.sin(currentAngle);
+        attempts++;
+      }
+
+      // If still colliding after max attempts, place at a random angle on the orbit
+      if (checkCollision(x, y, normalizedSize, positions)) {
+        currentAngle = Math.random() * 2 * Math.PI;
+        x = centerX + closestApproachRadius * Math.cos(currentAngle);
+        y = centerY + closestApproachRadius * Math.sin(currentAngle);
+      }
+
+      // Final safety check: ensure minimum distance from Earth center
+      const distanceFromCenter = Math.sqrt(
+        (x - centerX) ** 2 + (y - centerY) ** 2
+      );
+      const minDistanceFromEarth = earthRadius + normalizedSize + 5; // Earth radius + asteroid size + buffer
+      if (distanceFromCenter < minDistanceFromEarth) {
+        // Adjust position to maintain minimum distance
+        const angle = Math.atan2(y - centerY, x - centerX);
+        x = centerX + minDistanceFromEarth * Math.cos(angle);
+        y = centerY + minDistanceFromEarth * Math.sin(angle);
+      }
+
+      // Calculate opacity based on how close the object is to its closest approach time
+      const timeProximity = Math.abs(timeFromWeekStart - 84) / 84; // 84 hours = 3.5 days (middle of week)
+      const opacity = Math.max(0.3, Math.min(1, 1 - timeProximity * 0.7));
+
+      positions.push({
         id: neo.id,
         x,
         y,
         size: normalizedSize,
         isPHA: neo.isPHA,
         data: neo,
-      };
+        closestApproachRadius,
+        opacity,
+      });
     });
-  }, [neoData, width, height, centerX, centerY, earthRadius]);
+
+    return positions;
+  }, [
+    neoData,
+    currentWeek,
+    timeRange,
+    width,
+    height,
+    centerX,
+    centerY,
+    earthRadius,
+  ]);
 
   const handleAsteroidClick = (asteroidId: string) => {
     setSelectedAsteroid(selectedAsteroid === asteroidId ? null : asteroidId);
+  };
+
+  const handleWeekChange = (week: number) => {
+    setCurrentWeek(Math.max(0, Math.min(timeRange.weeks - 1, week)));
   };
 
   return (
@@ -186,7 +299,7 @@ const SpaceVisualization: React.FC<SpaceVisualizationProps> = ({
             ))}
 
             {/* Range markers */}
-            {[0, 90, 180, 270].map((angle, i) => (
+            {[90, 180, 270, 0].map((angle, i) => (
               <g key={`range-marker-${i}`}>
                 <line
                   x1={centerX + earthRadius * Math.cos((angle * Math.PI) / 180)}
@@ -245,6 +358,31 @@ const SpaceVisualization: React.FC<SpaceVisualizationProps> = ({
               strokeWidth="1"
             />
 
+            {/* Orbital trails */}
+            {asteroidPositions.map((asteroid) => {
+              const trailPoints = [];
+              for (let i = 0; i <= 20; i++) {
+                const angle = (i / 20) * 2 * Math.PI;
+                const x =
+                  centerX + asteroid.closestApproachRadius * Math.cos(angle);
+                const y =
+                  centerY + asteroid.closestApproachRadius * Math.sin(angle);
+                trailPoints.push(`${x},${y}`);
+              }
+              return (
+                <circle
+                  key={`trail-${asteroid.id}`}
+                  cx={centerX}
+                  cy={centerY}
+                  r={asteroid.closestApproachRadius}
+                  fill="none"
+                  stroke="rgba(34, 197, 94, 0.2)"
+                  strokeWidth="1"
+                  strokeDasharray="3,3"
+                />
+              );
+            })}
+
             {/* Asteroids (radar blips) */}
             {asteroidPositions.map((asteroid) => (
               <g key={asteroid.id}>
@@ -271,26 +409,15 @@ const SpaceVisualization: React.FC<SpaceVisualizationProps> = ({
 
                 {/* PHA warning pulse */}
                 {asteroid.isPHA && (
-                  <>
-                    <circle
-                      cx={asteroid.x}
-                      cy={asteroid.y}
-                      r={asteroid.size + 3}
-                      fill="none"
-                      stroke="rgba(239, 68, 68, 0.4)"
-                      strokeWidth="2"
-                      className="animate-ping"
-                    />
-                    <circle
-                      cx={asteroid.x}
-                      cy={asteroid.y}
-                      r={asteroid.size + 6}
-                      fill="none"
-                      stroke="rgba(239, 68, 68, 0.2)"
-                      strokeWidth="1"
-                      className="animate-pulse"
-                    />
-                  </>
+                  <circle
+                    cx={asteroid.x}
+                    cy={asteroid.y}
+                    r={asteroid.size + 6}
+                    fill="none"
+                    stroke="rgba(239, 68, 68, 0.2)"
+                    strokeWidth="1"
+                    className="animate-pulse"
+                  />
                 )}
 
                 {/* Selection targeting reticle */}
@@ -345,6 +472,116 @@ const SpaceVisualization: React.FC<SpaceVisualizationProps> = ({
               </g>
             ))}
           </svg>
+        </div>
+
+        {/* Timeline Controls */}
+        <div className="px-4 py-3 border-t border-green-500/30  from-black via-gray-900 to-black">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs font-mono text-green-400">
+              <span className="text-green-300">TEMPORAL NAVIGATION</span>
+            </div>
+            <div className="text-xs font-mono text-green-400">
+              WEEK {currentWeek + 1} OF {timeRange.weeks}
+            </div>
+          </div>
+
+          {/* Timeline Slider */}
+          <div className="relative">
+            {/* Timeline background with grid */}
+            <div className="h-8 bg-black border border-green-500/50 rounded relative overflow-hidden">
+              {/* Grid lines */}
+              <div className="absolute inset-0 opacity-20">
+                {Array.from({ length: timeRange.weeks + 1 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="absolute top-0 bottom-0 w-px bg-green-500/30"
+                    style={{ left: `${(i / timeRange.weeks) * 100}%` }}
+                  />
+                ))}
+              </div>
+
+              {/* Week markers */}
+              {Array.from({ length: timeRange.weeks }).map((_, i) => (
+                <div
+                  key={i}
+                  className="absolute top-1 bottom-1 w-1 bg-green-500/20 rounded"
+                  style={{
+                    left: `${
+                      timeRange.weeks > 1
+                        ? (i / (timeRange.weeks - 1)) * 100
+                        : 50
+                    }%`,
+                    transform: "translateX(-50%)",
+                  }}
+                />
+              ))}
+
+              {/* Current position indicator */}
+              <div
+                className="absolute top-0 bottom-0 w-1 bg-green-400 rounded shadow-lg shadow-green-400/50"
+                style={{
+                  left: `${
+                    timeRange.weeks > 1
+                      ? (currentWeek / (timeRange.weeks - 1)) * 100
+                      : 50
+                  }%`,
+                  transform:
+                    timeRange.weeks - 1 === currentWeek
+                      ? "translateX(-100%)"
+                      : undefined,
+                }}
+              />
+            </div>
+
+            {/* Slider input */}
+            <input
+              type="range"
+              min="0"
+              max={timeRange.weeks - 1}
+              value={currentWeek}
+              onChange={(e) => handleWeekChange(parseInt(e.target.value))}
+              className="absolute inset-0 w-full h-8 opacity-0 cursor-pointer z-10"
+            />
+          </div>
+
+          {/* Navigation buttons */}
+          <div className="flex items-center justify-center gap-4 mt-2">
+            <button
+              onClick={() => handleWeekChange(currentWeek - 1)}
+              disabled={currentWeek === 0}
+              className="px-4 py-1 bg-gray-800 border border-green-500/50 text-green-400 font-mono text-sm rounded disabled:opacity-30 disabled:cursor-not-allowed hover:bg-green-900/50 hover:border-green-400 transition-all duration-200"
+            >
+              ◀ PREVIOUS
+            </button>
+
+            <div className="text-xs font-mono text-green-300 px-3 py-1 bg-black/50 border border-green-500/30 rounded">
+              {new Date(
+                timeRange.startDate.getTime() +
+                  currentWeek * 7 * 24 * 60 * 60 * 1000
+              ).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })}{" "}
+              -{" "}
+              {new Date(
+                timeRange.startDate.getTime() +
+                  (currentWeek + 1) * 7 * 24 * 60 * 60 * 1000
+              ).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })}
+            </div>
+
+            <button
+              onClick={() => handleWeekChange(currentWeek + 1)}
+              disabled={currentWeek === timeRange.weeks - 1}
+              className="px-4 py-1 bg-gray-800 border border-green-500/50 text-green-400 font-mono text-sm rounded disabled:opacity-30 disabled:cursor-not-allowed hover:bg-green-900/50 hover:border-green-400 transition-all duration-200"
+            >
+              NEXT ▶
+            </button>
+          </div>
         </div>
 
         {/* Status panel */}

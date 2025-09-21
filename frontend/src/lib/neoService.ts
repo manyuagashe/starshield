@@ -7,7 +7,8 @@ interface NEOData {
   distance: number; // million km
   velocity: number; // km/s
   isPHA: boolean; // is potentially hazardous asteroid
-  timeToClosestApproach: number; // hours
+  etaClosest: string; // ISO date string for closest approach
+  timeToClosestApproach: number; // hours (derived from etaClosest)
   impactProbability: number; // percentage
 }
 
@@ -23,6 +24,7 @@ async function getNEOData(): Promise<NEOData[]> {
         distance: item.distance_km / 1_000_000,
         velocity: item.velocity_kms,
         isPHA: Boolean(item.is_pha),
+        etaClosest: item.eta_closest,
         timeToClosestApproach: item.eta_closest
           ? Math.max(
               0,
@@ -180,15 +182,24 @@ function getMockNEOData(): NEOData[] {
     },
   ];
 
+  // Uniformly distribute etaClosest dates over the next 4 weeks
+  const now = Date.now();
+  const fourWeeksMs = 28 * 24 * 60 * 60 * 1000;
   return objects.map((obj, index) => {
+    const percent = index / objects.length;
+    const etaClosestDate = new Date(now + percent * fourWeeksMs);
+    const etaClosest = etaClosestDate.toISOString();
+
+    // Calculate timeToClosestApproach in hours
+    const timeToClosestApproach =
+      (etaClosestDate.getTime() - now) / (1000 * 60 * 60);
+
+    // Simulate distance and velocity
     const timeVariation = Math.sin(Date.now() / 10000 + index) * 0.01;
     const distance = obj.baseDistance + timeVariation;
     const velocity = 15 + Math.random() * 25;
-    const timeToClosest = (distance * 149.6) / (velocity * 0.0036); // Convert to hours
 
     // Determine if asteroid is potentially hazardous
-    // PHA criteria: minimum orbital intersection distance (MOID) of 0.05 AU (7.5 million km)
-    // and diameter of at least 140 meters (0.14 km)
     const isPHA = distance < 0.05 && obj.size > 0.14;
 
     // Impact probability increases with size and decreases with distance
@@ -206,7 +217,8 @@ function getMockNEOData(): NEOData[] {
       distance,
       velocity,
       isPHA,
-      timeToClosestApproach: timeToClosest,
+      etaClosest,
+      timeToClosestApproach,
       impactProbability,
     };
   });
