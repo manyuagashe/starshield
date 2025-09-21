@@ -29,5 +29,24 @@
   },
   "test_accuracy": 0.7823494335122242,
   "pha_true_accuracy": 0.84375,
-  "pha_false_accuracy": 0.7811550151975684
+  "pha_false_accuracy": 0.7811550151975684,
+  "pha_model": {
+    "features_used": [
+      "distance_au",
+      "velocity_kms",
+      "diameter_km",
+      "v_infinity_kms",
+      "class_AMO",
+      "class_APO",
+      "class_ATE",
+      "class_IEO"
+    ],
+    "test_accuracy": 0.9695885509838998,
+    "model_type": "RandomForestClassifier",
+    "model_params": {
+      "n_estimators": 100,
+      "max_depth": 10,
+      "random_state": 42
+    }
+  }
 }

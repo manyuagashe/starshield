@@ -184,6 +184,59 @@ model.fit(X_train, y_train)
 
 print("Model training complete!")
 
+# ### 4.5. PHA Binary Classification Model ###
+print("\n--- Section 4.5: Training PHA Binary Classification Model... ---")
+
+# Define features for PHA prediction (excluding is_pha itself)
+pha_features = [
+    'distance_au', 'velocity_kms', 'diameter_km', 'v_infinity_kms',
+    'class_AMO', 'class_APO', 'class_ATE', 'class_IEO'
+]
+
+# Ensure all PHA feature columns exist in both datasets
+for dataset in [train_processed, test_processed]:
+    for col in pha_features:
+        if col not in dataset.columns:
+            dataset[col] = 0
+            print(f"Added missing PHA feature column '{col}' with default value 0")
+
+# Prepare PHA training data
+X_train_pha = train_processed[pha_features]
+y_train_pha = train_processed['is_pha']
+
+# Prepare PHA test data
+X_test_pha = test_processed[pha_features]
+y_test_pha = test_processed['is_pha']
+
+print(f"\nPHA Training set - Features: {X_train_pha.shape}, Labels: {y_train_pha.shape}")
+print(f"PHA Test set - Features: {X_test_pha.shape}, Labels: {y_test_pha.shape}")
+print(f"PHA Features used: {pha_features}")
+
+# Train the PHA binary classifier
+pha_model = RandomForestClassifier(n_estimators=100, max_depth=10, random_state=42, n_jobs=-1)
+pha_model.fit(X_train_pha, y_train_pha)
+
+print("PHA binary classification model training complete!")
+
+# Evaluate PHA model
+y_pred_pha = pha_model.predict(X_test_pha)
+pha_accuracy = (y_test_pha == y_pred_pha).mean()
+print(f"PHA Model Accuracy: {pha_accuracy:.2%}")
+
+# PHA model classification report
+print("\nPHA Model Classification Report:")
+print(classification_report(y_test_pha, y_pred_pha, target_names=['Non-PHA', 'PHA'], zero_division=0))
+
+# PHA Feature importance
+pha_feature_importance = pd.DataFrame({
+    'feature': pha_features,
+    'importance': pha_model.feature_importances_
+}).sort_values('importance', ascending=False)
+
+print("\nPHA Model Feature Importance:")
+for _, row in pha_feature_importance.iterrows():
+    print(f"  {row['feature']}: {row['importance']:.4f}")
+
 
 # ### 5. Model Evaluation ###
 print("\n--- Section 5: Evaluating the model on your data... ---")
@@ -239,8 +292,13 @@ label_map = {v: k for k, v in risk_mapping.items()}
 label_filename = 'risk_level_labels.joblib'
 joblib.dump(label_map, label_filename)
 
+# Save PHA binary classification model
+pha_model_filename = 'asteroid_pha_model.joblib'
+joblib.dump(pha_model, pha_model_filename)
+
 print(f"Model saved to: {os.path.abspath(model_filename)}")
 print(f"Label map saved to: {os.path.abspath(label_filename)}")
+print(f"PHA model saved to: {os.path.abspath(pha_model_filename)}")
 
 # Save training metadata
 metadata = {
@@ -259,7 +317,17 @@ metadata = {
     },
     'test_accuracy': float((y_test == y_pred).mean()),
     'pha_true_accuracy': float(pha_true_accuracy),
-    'pha_false_accuracy': float(pha_false_accuracy)
+    'pha_false_accuracy': float(pha_false_accuracy),
+    'pha_model': {
+        'features_used': pha_features,
+        'test_accuracy': float(pha_accuracy),
+        'model_type': 'RandomForestClassifier',
+        'model_params': {
+            'n_estimators': 100,
+            'max_depth': 10,
+            'random_state': 42
+        }
+    }
 }
 
 with open('model_metadata.json', 'w') as f:

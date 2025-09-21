@@ -53,6 +53,14 @@ try:
     model = joblib.load('asteroid_risk_model.joblib')
     label_map = joblib.load('risk_level_labels.joblib')
     
+    # Load PHA binary classification model
+    try:
+        pha_model = joblib.load('asteroid_pha_model.joblib')
+        print("PHA binary classification model loaded successfully.")
+    except FileNotFoundError:
+        print("WARNING: PHA model not found. PHA predictions will not be available.")
+        pha_model = None
+    
     # Try to load training metadata if available
     try:
         with open('model_metadata.json', 'r') as f:
@@ -61,11 +69,22 @@ try:
             'distance_au', 'velocity_kms', 'diameter_km', 'v_infinity_kms', 'is_pha',
             'class_AMO', 'class_APO', 'class_ATE', 'class_IEO'
         ])
+        PHA_FEATURES = metadata.get('pha_model', {}).get('features_used', [
+            'distance_au', 'velocity_kms', 'diameter_km', 'v_infinity_kms',
+            'class_AMO', 'class_APO', 'class_ATE', 'class_IEO'
+        ])
         print(f"Model loaded successfully. Trained on {metadata.get('training_records', 'unknown')} records.")
+        if pha_model:
+            pha_accuracy = metadata.get('pha_model', {}).get('test_accuracy', 0)
+            print(f"PHA model accuracy: {pha_accuracy:.2%}")
     except FileNotFoundError:
         # Fallback to default features
         TRAINING_FEATURES = [
             'distance_au', 'velocity_kms', 'diameter_km', 'v_infinity_kms', 'is_pha',
+            'class_AMO', 'class_APO', 'class_ATE', 'class_IEO'
+        ]
+        PHA_FEATURES = [
+            'distance_au', 'velocity_kms', 'diameter_km', 'v_infinity_kms',
             'class_AMO', 'class_APO', 'class_ATE', 'class_IEO'
         ]
         print("Model loaded successfully (without metadata).")
@@ -75,7 +94,9 @@ except FileNotFoundError as e:
     print("Please run `python train_model.py` first with your `real_asteroid_data.json` file.")
     model = None
     label_map = None
+    pha_model = None
     TRAINING_FEATURES = []
+    PHA_FEATURES = []
 
 
 # --- 6. Enhanced Data Models with Validation ---
@@ -197,6 +218,7 @@ class PredictionResponse(BaseModel):
     predicted_risk_score: float = Field(description="ML model risk score (0-1)")
     predicted_risk_level: str = Field(description="Risk level category")
     confidence: float = Field(description="Prediction confidence")
+    predicted_pha: Optional[bool] = Field(description="ML prediction of whether asteroid is a Potentially Hazardous Asteroid (PHA)")
     
     # Derived Visualization Fields
     time_to_approach_hours: Optional[float] = Field(description="Time to closest approach in hours")
@@ -241,7 +263,13 @@ async def get_model_dependency():
             status_code=503,
             detail="Model not loaded. Please check server configuration."
         )
-    return {"model": model, "label_map": label_map, "features": TRAINING_FEATURES}
+    return {
+        "model": model, 
+        "label_map": label_map, 
+        "features": TRAINING_FEATURES,
+        "pha_model": pha_model,
+        "pha_features": PHA_FEATURES
+    }
 
 # --- Helper functions for calculations ---
 def calculate_risk_score(probabilities: np.ndarray) -> float:
@@ -495,6 +523,17 @@ async def predict_batch(
                 asteroid.distance_au, asteroid.diameter_km, asteroid.is_pha
             )
             
+            # Predict PHA status using the PHA binary classifier
+            predicted_pha = None
+            if model_deps.get("pha_model") is not None:
+                try:
+                    # Prepare input for PHA model (excluding is_pha)
+                    pha_input_df = input_df_processed.reindex(columns=model_deps["pha_features"], fill_value=0)
+                    predicted_pha = bool(model_deps["pha_model"].predict(pha_input_df)[0])
+                except Exception as e:
+                    logger.warning(f"Failed to predict PHA status for record {i}: {e}")
+                    predicted_pha = None
+            
             predictions.append(PredictionResponse(
                 # NEO Identification
                 object_id=asteroid.object_id or f"NEO-{prediction_id}",
@@ -514,6 +553,7 @@ async def predict_batch(
                 predicted_risk_score=round(risk_score, 4),
                 predicted_risk_level=predicted_level,
                 confidence=round(confidence, 4),
+                predicted_pha=predicted_pha,
                 
                 # Derived Visualization Fields
                 time_to_approach_hours=round(time_to_approach, 2) if time_to_approach else None,
@@ -1160,6 +1200,17 @@ def get_train_predictions(
                     asteroid.distance_au, asteroid.diameter_km, asteroid.is_pha
                 )
                 
+                # Predict PHA status using the PHA binary classifier
+                predicted_pha = None
+                if model_deps.get("pha_model") is not None:
+                    try:
+                        # Prepare input for PHA model (excluding is_pha)
+                        pha_input_df = input_df_processed.reindex(columns=model_deps["pha_features"], fill_value=0)
+                        predicted_pha = bool(model_deps["pha_model"].predict(pha_input_df)[0])
+                    except Exception as e:
+                        logger.warning(f"Failed to predict PHA status for record {i}: {e}")
+                        predicted_pha = None
+                
                 predictions.append(PredictionResponse(
                     # NEO Identification
                     object_id=asteroid.object_id or f"ALL-{prediction_id}",
@@ -1179,6 +1230,7 @@ def get_train_predictions(
                     predicted_risk_score=round(risk_score, 4),
                     predicted_risk_level=predicted_level,
                     confidence=round(confidence, 4),
+                    predicted_pha=predicted_pha,
                     
                     # Derived Visualization Fields
                     time_to_approach_hours=round(time_to_approach, 2) if time_to_approach else None,
@@ -1338,6 +1390,17 @@ def get_all_predictions(
                     asteroid.distance_au, asteroid.diameter_km, asteroid.is_pha
                 )
                 
+                # Predict PHA status using the PHA binary classifier
+                predicted_pha = None
+                if model_deps.get("pha_model") is not None:
+                    try:
+                        # Prepare input for PHA model (excluding is_pha)
+                        pha_input_df = input_df_processed.reindex(columns=model_deps["pha_features"], fill_value=0)
+                        predicted_pha = bool(model_deps["pha_model"].predict(pha_input_df)[0])
+                    except Exception as e:
+                        logger.warning(f"Failed to predict PHA status for record {i}: {e}")
+                        predicted_pha = None
+                
                 predictions.append(PredictionResponse(
                     # NEO Identification
                     object_id=asteroid.object_id or f"ALL-{prediction_id}",
@@ -1357,6 +1420,7 @@ def get_all_predictions(
                     predicted_risk_score=round(risk_score, 4),
                     predicted_risk_level=predicted_level,
                     confidence=round(confidence, 4),
+                    predicted_pha=predicted_pha,
                     
                     # Derived Visualization Fields
                     time_to_approach_hours=round(time_to_approach, 2) if time_to_approach else None,
@@ -1650,7 +1714,6 @@ async def shutdown_event():
     logger.info(f"📊 Final statistics:")
     logger.info(f"   Total predictions: {app.state.prediction_count}")
     logger.info(f"   Connected clients: {len(app.state.connected_clients)}")
-    uptime = (datetime.now() - app.state.start_time).total_seconds()
     logger.info(f"   Uptime: {uptime:.2f} seconds")
     logger.info("👋 Shutdown complete!")
 
