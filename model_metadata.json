@@ -41,7 +41,7 @@
       "class_ATE",
       "class_IEO"
     ],
-    "test_accuracy": 0.9695885509838998,
+    "test_accuracy": 0.9338103756708408,
     "model_type": "RandomForestClassifier",
     "model_params": {
       "n_estimators": 100,

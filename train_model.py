@@ -187,18 +187,11 @@ print("Model training complete!")
 # ### 4.5. PHA Binary Classification Model ###
 print("\n--- Section 4.5: Training PHA Binary Classification Model... ---")
 
-# Define features for PHA prediction (excluding is_pha itself)
+# Define the final feature set for the PHA classifier
 pha_features = [
     'distance_au', 'velocity_kms', 'diameter_km', 'v_infinity_kms',
     'class_AMO', 'class_APO', 'class_ATE', 'class_IEO'
 ]
-
-# Ensure all PHA feature columns exist in both datasets
-for dataset in [train_processed, test_processed]:
-    for col in pha_features:
-        if col not in dataset.columns:
-            dataset[col] = 0
-            print(f"Added missing PHA feature column '{col}' with default value 0")
 
 # Prepare PHA training data
 X_train_pha = train_processed[pha_features]
@@ -208,15 +201,17 @@ y_train_pha = train_processed['is_pha']
 X_test_pha = test_processed[pha_features]
 y_test_pha = test_processed['is_pha']
 
-print(f"\nPHA Training set - Features: {X_train_pha.shape}, Labels: {y_train_pha.shape}")
-print(f"PHA Test set - Features: {X_test_pha.shape}, Labels: {y_test_pha.shape}")
-print(f"PHA Features used: {pha_features}")
-
-# Train the PHA binary classifier
-pha_model = RandomForestClassifier(n_estimators=100, max_depth=10, random_state=42, n_jobs=-1)
+# Train the PHA binary classifier with class weights
+pha_model = RandomForestClassifier(
+    n_estimators=100,
+    max_depth=10,
+    random_state=42,
+    n_jobs=-1,
+    class_weight='balanced'  # Adjust weights for class imbalance
+)
 pha_model.fit(X_train_pha, y_train_pha)
 
-print("PHA binary classification model training complete!")
+print("PHA binary classification model trained with class balancing.")
 
 # Evaluate PHA model
 y_pred_pha = pha_model.predict(X_test_pha)
@@ -335,3 +330,13 @@ with open('model_metadata.json', 'w') as f:
 
 print(f"Training metadata saved to: {os.path.abspath('model_metadata.json')}")
 print("\nSCRIPT FINISHED! Your model is trained and ready to be served.")
+
+# Log misclassifications where is_pha=True but predicted_pha=False
+print("\n--- Analyzing Misclassifications ---")
+misclassified = test_processed[(y_test_pha == 1) & (y_pred_pha == 0)]
+print(f"Number of misclassified PHA cases: {len(misclassified)}")
+if not misclassified.empty:
+    print("\nMisclassified PHA cases:")
+    print(misclassified)
+else:
+    print("No misclassifications found where is_pha=True but predicted_pha=False.")
