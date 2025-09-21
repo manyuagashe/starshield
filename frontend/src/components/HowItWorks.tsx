@@ -631,9 +631,6 @@ export const HowItWorks = ({
                 • <strong>Purpose:</strong> General overview of the STAR SHIELD system
               </div>
               <div>
-                • <strong>Monitoring:</strong> API Connection Status
-              </div>
-              <div>
                 • <strong>Assessment:</strong> Overall threat environment
                 classification and trends
               </div>
@@ -647,35 +644,49 @@ export const HowItWorks = ({
       title: "Tutorial Complete",
       icon: <CheckCircle className="h-6 w-6 text-green-400 animate-bounce" />,
       content: (
-        <div className="space-y-3 w-full max-w-3xl">
-          {/* Interactive completion section */}
-          <div className="text-center p-3 bg-gradient-to-br from-primary/10 via-green-500/10 to-blue-500/10 rounded-lg border border-primary/30 relative overflow-hidden">
-            {/* Animated background */}
-            <div className="absolute inset-0 opacity-20">
-              {[...Array(6)].map((_, i) => (
+        <div className="space-y-2 w-full max-w-2xl">
+          {/* Compact completion section */}
+          <div className="text-center p-4 bg-gradient-to-br from-primary/10 via-green-500/10 to-blue-500/10 rounded-lg border border-primary/30 relative overflow-hidden">
+            {/* Minimal animated background */}
+            <div className="absolute inset-0 opacity-15">
+              {[...Array(4)].map((_, i) => (
                 <div
                   key={i}
                   className="absolute w-1 h-1 bg-primary rounded-full tutorial-matrix"
                   style={{
-                    left: `${15 + i * 15}%`,
-                    top: `${30 + (i % 2) * 30}%`,
-                    animationDelay: `${i * 0.5}s`,
+                    left: `${20 + i * 20}%`,
+                    top: `${40 + (i % 2) * 20}%`,
+                    animationDelay: `${i * 0.7}s`,
                   }}
                 />
               ))}
             </div>
 
-            <div className="relative z-10 space-y-2">
+            <div className="relative z-10 space-y-3">
               <div className="relative inline-block">
-                <CheckCircle className="h-8 w-8 text-green-400 animate-bounce" />
+                <CheckCircle className="h-12 w-12 text-green-400 animate-bounce" />
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-10 h-10 border-2 border-green-400 rounded-full animate-ping opacity-20" />
+                  <div className="w-14 h-14 border-2 border-green-400 rounded-full animate-ping opacity-20" />
                 </div>
               </div>
 
-              <div className="font-semibold">Tutorial Complete! 🎉</div>
-              <div className="text-xs text-muted-foreground mb-2">
-                You're now ready to explore STAR SHIELD's capabilities
+              <div className="space-y-2">
+                <div className="text-lg font-bold text-green-400">Tutorial Complete! 🎉</div>
+                <div className="text-sm text-muted-foreground max-w-md mx-auto">
+                  You're now ready to explore STAR SHIELD's Near Earth Object tracking and threat assessment capabilities.
+                </div>
+                
+                {/* Quick reference */}
+                <div className="grid grid-cols-2 gap-3 mt-4 text-xs">
+                  <div className="p-2 bg-background/50 rounded border border-primary/20">
+                    <div className="text-blue-400 font-semibold mb-1">Interactive Features</div>
+                    <div className="text-muted-foreground">• Click asteroids in radar • Filter by matrix cells • Sort tracking table</div>
+                  </div>
+                  <div className="p-2 bg-background/50 rounded border border-primary/20">
+                    <div className="text-green-400 font-semibold mb-1">Navigation Tips</div>
+                    <div className="text-muted-foreground">• Use search to find objects • Check system status • Monitor PHA alerts</div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

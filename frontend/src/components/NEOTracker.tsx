@@ -49,6 +49,9 @@ export const NEOTracker = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState<SortField>("isPHA");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [itemsToShow, setItemsToShow] = useState(12);
+
+  const ITEMS_PER_PAGE = 12;
 
   useEffect(() => {
     console.log("selectedNEO changed:", selectedNEO);
@@ -57,6 +60,15 @@ export const NEOTracker = ({
       setSearchTerm(neoData.find((neo) => neo.id === selectedNEO)?.name || "");
     }
   }, [selectedNEO, neoData]);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setItemsToShow(ITEMS_PER_PAGE);
+  }, [searchTerm, sizeFilter, velocityFilter, sortField, sortDirection]);
+
+  const loadMoreItems = () => {
+    setItemsToShow(prev => prev + ITEMS_PER_PAGE);
+  };
 
   const filteredAndSortedData = useMemo(() => {
     let filtered = neoData;
@@ -183,7 +195,10 @@ export const NEOTracker = ({
           NEAR EARTH OBJECT TRACKER
         </h2>
         <div className="text-xs text-muted-foreground">
-          {filteredAndSortedData.length} of {neoData.length} objects
+          {filteredAndSortedData.length > itemsToShow 
+            ? `Showing ${itemsToShow} of ${filteredAndSortedData.length} • Total: ${neoData.length}`
+            : `${filteredAndSortedData.length} of ${neoData.length} objects`
+          }
         </div>
       </div>
 
@@ -305,7 +320,7 @@ export const NEOTracker = ({
           </div>
         ) : (
           <>
-            {filteredAndSortedData.map((neo) => (
+            {filteredAndSortedData.slice(0, itemsToShow).map((neo) => (
               <div
                 key={neo.id}
                 className="neo-tracking-item"
@@ -360,6 +375,27 @@ export const NEOTracker = ({
                 </div>
               </div>
             ))}
+
+            {/* Load More Button */}
+            {filteredAndSortedData.length > itemsToShow && (
+              <div className="flex justify-center pt-3">
+                <Button
+                  variant="outline"
+                  onClick={loadMoreItems}
+                  className="gap-2 bg-background/50 border-primary/30 hover:bg-primary/10 text-sm"
+                >
+                  <span>Show {Math.min(ITEMS_PER_PAGE, filteredAndSortedData.length - itemsToShow)} more</span>
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+
+            {/* Show pagination info */}
+            {filteredAndSortedData.length > ITEMS_PER_PAGE && (
+              <div className="text-center text-xs text-muted-foreground pt-2 border-t border-primary/20 mt-3">
+                Showing {Math.min(itemsToShow, filteredAndSortedData.length)} of {filteredAndSortedData.length} objects
+              </div>
+            )}
 
             {filteredAndSortedData.length === 0 && neoData.length > 0 && (
               <div className="text-center py-8 text-muted-foreground">
