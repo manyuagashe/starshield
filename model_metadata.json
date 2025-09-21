@@ -1,5 +1,9 @@
 {
-  "training_records": 1040,
+  "training_records": 6704,
+  "test_records": 1677,
+  "total_records": 8381,
+  "pha_true_count": 161,
+  "pha_false_count": 8220,
   "features_used": [
     "distance_au",
     "velocity_kms",
@@ -22,5 +26,8 @@
     "n_estimators": 100,
     "max_depth": 10,
     "random_state": 42
-  }
+  },
+  "test_accuracy": 0.7823494335122242,
+  "pha_true_accuracy": 0.84375,
+  "pha_false_accuracy": 0.7811550151975684
 }

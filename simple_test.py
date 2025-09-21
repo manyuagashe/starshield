@@ -13,7 +13,13 @@ def debug_api_data_structure():
     # Step 1: Check raw API response
     print("1. Fetching raw API response...")
     try:
-        raw_response = fetch_asteroid_data()
+        # Define the URL
+        base_url = "https://ssd-api.jpl.nasa.gov/cad.api?diameter=true&date-min=2025-09-21&date-max=2025-12-21"
+        
+        # Test with non-PHA asteroids
+        non_pha_url = f"{base_url}&pha=false"
+        raw_response = fetch_asteroid_data(non_pha_url)  # Pass the URL!
+        
         print("✅ API call successful!")
         
         # Show API metadata
@@ -30,12 +36,14 @@ def debug_api_data_structure():
             
     except Exception as e:
         print(f"❌ Failed to fetch API data: {e}")
+        import traceback
+        traceback.print_exc()
         return
     
     # Step 2: Check processed data
     print("\n2. Processing API data...")
     try:
-        processed_data = process_api_data(raw_response)
+        processed_data = process_api_data(raw_response, is_pha=False)  # Note: process_api_data might need is_pha parameter
         print(f"✅ Processed {len(processed_data)} records")
         
         if processed_data:
@@ -45,16 +53,6 @@ def debug_api_data_structure():
             print(f"\nAll fields in processed record:")
             print(list(processed_data[0].keys()))
             
-            # Check for required fields
-            required_fields = ['distance_au', 'velocity_kms', 'diameter_km', 
-                             'v_infinity_kms', 'is_pha', 'orbit_class']
-            missing_fields = [f for f in required_fields if f not in processed_data[0]]
-            
-            if missing_fields:
-                print(f"\n⚠️  Missing required fields: {missing_fields}")
-            else:
-                print(f"\n✅ All required fields present!")
-                
     except Exception as e:
         print(f"❌ Failed to process data: {e}")
         import traceback
@@ -64,6 +62,7 @@ def debug_api_data_structure():
     # Step 3: Test train/test split
     print("\n3. Testing train/test data split...")
     try:
+        # This function doesn't need parameters as it has defaults
         train_data, test_data = get_train_test_data()
         print(f"✅ Train/test split successful!")
         print(f"- Training samples: {len(train_data)}")

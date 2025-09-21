@@ -1,13 +1,14 @@
 # ==============================================================================
-# ASTEROID RISK MODEL - TRAINING SCRIPT (JSON VERSION)
+# ASTEROID RISK MODEL - TRAINING SCRIPT (DUAL JSON VERSION)
 #
 # Instructions:
-# 1. Prepare your data in a file named `real_asteroid_data.json`.
-#    It MUST contain an array of objects with the required feature columns and the `risk_level` field.
+# 1. Prepare your data in two files:
+#    - `final_data_false.json` (contains asteroids with is_pha=false)
+#    - `final_data_true.json` (contains asteroids with is_pha=true)
 # 2. Run this script from your terminal: `python train_model.py`
 #
-# This script will load your real data from JSON, train a model, and save the output
-# to `asteroid_risk_model.joblib` and `risk_level_labels.joblib`.
+# This script will load both files, mix them, split into train/test sets,
+# and save the model to `asteroid_risk_model.joblib` and `risk_level_labels.joblib`.
 # ==============================================================================
 
 # ### 1. Setup and Imports ###
@@ -25,29 +26,35 @@ import os
 print("--- Section 1: Libraries imported successfully! ---")
 
 
-# ### 2. Load Real Data from JSON ###
-print("\n--- Section 2: Loading real asteroid data from JSON... ---")
+# ### 2. Load and Combine Data from Both JSON Files ###
+print("\n--- Section 2: Loading and combining asteroid data from JSON files... ---")
 try:
-    # Load training data specifically
-    with open('real_asteroid_data_train.json', 'r') as f:
-        train_data = json.load(f)
+    # Load data with is_pha=false
+    with open('final_data_false.json', 'r') as f:
+        data_false = json.load(f)
+    print(f"Loaded {len(data_false)} records with is_pha=false")
     
-    # Load test data for evaluation
-    with open('real_asteroid_data_test.json', 'r') as f:
-        test_data = json.load(f)
+    # Load data with is_pha=true
+    with open('final_data_true.json', 'r') as f:
+        data_true = json.load(f)
+    print(f"Loaded {len(data_true)} records with is_pha=true")
     
-    # Convert JSON data to DataFrames
-    train_df = pd.DataFrame(train_data)
-    test_df = pd.DataFrame(test_data)
+    # Combine both datasets
+    all_data = data_false + data_true
+    print(f"\nTotal combined records: {len(all_data)}")
     
-    print("Successfully loaded training and test data.")
-    print(f"Training data: {len(train_df)} records")
-    print(f"Test data: {len(test_df)} records")
-    print("First 5 rows of training data:")
-    print(train_df.head())
+    # Convert to DataFrame
+    df = pd.DataFrame(all_data)
     
-    # Use training data for model development
-    df = train_df
+    # Shuffle the data to ensure good mixing
+    df = df.sample(frac=1, random_state=42).reset_index(drop=True)
+    print("Data shuffled successfully")
+    
+    # Display PHA distribution
+    print(f"\nPHA distribution:")
+    pha_counts = df['is_pha'].value_counts()
+    for pha_status, count in pha_counts.items():
+        print(f"  is_pha={pha_status}: {count} ({count/len(df)*100:.1f}%)")
     
     # Validate required columns
     required_columns = ['distance_au', 'velocity_kms', 'diameter_km', 'v_infinity_kms', 
@@ -59,35 +66,19 @@ try:
         print(f"Required columns: {required_columns}")
         print(f"Found columns: {list(df.columns)}")
         exit()
+    
+    print("\nFirst 5 rows of combined data:")
+    print(df.head())
         
-except FileNotFoundError:
-    print("\nERROR: `real_asteroid_data.json` not found.")
-    print("Please create this file with your labeled training data in JSON format.")
-    print("\nExpected JSON format:")
-    print("""[
-    {
-        "distance_au": 0.018,
-        "velocity_kms": 22.3,
-        "diameter_km": 0.45,
-        "v_infinity_kms": 18.1,
-        "is_pha": true,
-        "orbit_class": "APO",
-        "risk_level": "High"
-    },
-    {
-        "distance_au": 0.025,
-        "velocity_kms": 15.2,
-        "diameter_km": 0.32,
-        "v_infinity_kms": 12.8,
-        "is_pha": false,
-        "orbit_class": "ATE",
-        "risk_level": "Medium"
-    }
-]""")
+except FileNotFoundError as e:
+    print(f"\nERROR: Required file not found: {e}")
+    print("Please ensure you have both files:")
+    print("  - final_data_false.json")
+    print("  - final_data_true.json")
     exit()
 except json.JSONDecodeError as e:
-    print(f"\nERROR: Invalid JSON format in 'real_asteroid_data.json': {e}")
-    print("Please check your JSON file for syntax errors.")
+    print(f"\nERROR: Invalid JSON format: {e}")
+    print("Please check your JSON files for syntax errors.")
     exit()
 
 # ### 3. Data Preprocessing (Handling Categorical Data) ###
@@ -106,29 +97,52 @@ if len(unmapped_risks) > 0:
     df = df.dropna(subset=['risk_encoded'])
     print(f"Removed rows with unmapped risk levels. Remaining records: {len(df)}")
 
-# Convert the 'orbit_class' column into numerical format using one-hot encoding
-df_processed = pd.get_dummies(df, columns=['orbit_class'], prefix='class')
-
-print(f"\nData after one-hot encoding 'orbit_class'. Shape: {df_processed.shape}")
-print("First 5 rows:")
-print(df_processed.head())
-
 # Display class distribution
 print(f"\nRisk level distribution:")
 for risk_level, count in df['risk_level'].value_counts().items():
     print(f"  {risk_level}: {count} ({count/len(df)*100:.1f}%)")
 
 
-# ### 4. Model Training (Using Pre-split Data) ###
-print("\n--- Section 4: Training the RandomForest model on your feature set... ---")
+# ### 4. Train/Test Split and Model Training ###
+print("\n--- Section 4: Splitting data and training the RandomForest model... ---")
+
+# First split the data into train and test sets
+# Using stratify to maintain the distribution of risk levels and is_pha
+stratify_column = df['risk_level'].astype(str) + '_' + df['is_pha'].astype(str)
+train_df, test_df = train_test_split(
+    df, 
+    test_size=0.2, 
+    random_state=42,
+    stratify=stratify_column
+)
+
+print(f"\nData split:")
+print(f"  Training set: {len(train_df)} records ({len(train_df)/len(df)*100:.1f}%)")
+print(f"  Test set: {len(test_df)} records ({len(test_df)/len(df)*100:.1f}%)")
+
+# Verify distribution is maintained
+print(f"\nPHA distribution in splits:")
+print("  Training set:")
+for pha_status, count in train_df['is_pha'].value_counts().items():
+    print(f"    is_pha={pha_status}: {count} ({count/len(train_df)*100:.1f}%)")
+print("  Test set:")
+for pha_status, count in test_df['is_pha'].value_counts().items():
+    print(f"    is_pha={pha_status}: {count} ({count/len(test_df)*100:.1f}%)")
+
+# Save the split data for future use (optional)
+with open('real_asteroid_data_train.json', 'w') as f:
+    json.dump(train_df.drop('risk_encoded', axis=1).to_dict('records'), f, indent=2)
+with open('real_asteroid_data_test.json', 'w') as f:
+    json.dump(test_df.drop('risk_encoded', axis=1).to_dict('records'), f, indent=2)
+print("\nSaved split data to real_asteroid_data_train.json and real_asteroid_data_test.json")
 
 # Process both training and test data with same preprocessing
 def preprocess_data(data_df):
     """Apply preprocessing to training or test data"""
     # Convert the text-based risk_level to a numerical format
-    risk_mapping = {"Low": 0, "Medium": 1, "High": 2, "Critical": 3}
     data_df = data_df.copy()
-    data_df['risk_encoded'] = data_df['risk_level'].map(risk_mapping)
+    if 'risk_encoded' not in data_df.columns:
+        data_df['risk_encoded'] = data_df['risk_level'].map(risk_mapping)
     
     # One-hot encode orbit_class
     data_processed = pd.get_dummies(data_df, columns=['orbit_class'], prefix='class')
@@ -189,13 +203,29 @@ print("\nFeature Importance:")
 for _, row in feature_importance.iterrows():
     print(f"  {row['feature']}: {row['importance']:.4f}")
 
+# Analyze predictions by is_pha status
+print("\nModel Performance by PHA Status:")
+test_results = test_df.copy()
+test_results['predicted_risk'] = [risk_mapping.get(pred, pred) for pred in y_pred]
+test_results['actual_risk_encoded'] = y_test.values
+
+# Performance for is_pha=True
+pha_true_mask = test_results['is_pha'] == True
+pha_true_accuracy = (test_results[pha_true_mask]['predicted_risk'] == test_results[pha_true_mask]['actual_risk_encoded']).mean()
+print(f"  Accuracy for PHA asteroids (is_pha=True): {pha_true_accuracy:.2%}")
+
+# Performance for is_pha=False
+pha_false_mask = test_results['is_pha'] == False
+pha_false_accuracy = (test_results[pha_false_mask]['predicted_risk'] == test_results[pha_false_mask]['actual_risk_encoded']).mean()
+print(f"  Accuracy for non-PHA asteroids (is_pha=False): {pha_false_accuracy:.2%}")
+
 # Confusion Matrix
 cm = confusion_matrix(y_test, y_pred)
 plt.figure(figsize=(8, 6))
 sns.heatmap(cm, annot=True, fmt='d', xticklabels=target_names, yticklabels=target_names, cmap='Blues')
 plt.xlabel('Predicted')
 plt.ylabel('Actual')
-plt.title('Confusion Matrix for Your Data')
+plt.title('Confusion Matrix for Combined Data')
 plt.tight_layout()
 plt.show()
 
@@ -214,7 +244,11 @@ print(f"Label map saved to: {os.path.abspath(label_filename)}")
 
 # Save training metadata
 metadata = {
-    'training_records': len(df),
+    'training_records': len(train_df),
+    'test_records': len(test_df),
+    'total_records': len(df),
+    'pha_true_count': int((df['is_pha'] == True).sum()),
+    'pha_false_count': int((df['is_pha'] == False).sum()),
     'features_used': features,
     'risk_mapping': risk_mapping,
     'model_type': 'RandomForestClassifier',
@@ -222,7 +256,10 @@ metadata = {
         'n_estimators': 100,
         'max_depth': 10,
         'random_state': 42
-    }
+    },
+    'test_accuracy': float((y_test == y_pred).mean()),
+    'pha_true_accuracy': float(pha_true_accuracy),
+    'pha_false_accuracy': float(pha_false_accuracy)
 }
 
 with open('model_metadata.json', 'w') as f:

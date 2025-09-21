@@ -714,141 +714,66 @@ def get_train_predictions(
         raise HTTPException(status_code=500, detail=f"Error processing training data: {str(e)}")
 
 
-@app.get("/data/test", response_model=BatchPredictionResponse)
-def get_test_predictions(
+@app.get("/data/train", response_model=BatchPredictionResponse)
+def get_train_predictions(
     background_tasks: BackgroundTasks, 
     client_ip: str = Depends(track_connection),
     model_deps: Dict = Depends(get_model_dependency)
 ):
     """
-    Get predictions for all asteroids in the test dataset.
+    Get predictions for all asteroids in the training dataset.
     """
     import time
-    batch_id = f"test_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    batch_id = f"train_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     
     try:
-        # Load test data
-        with open('real_asteroid_data_test.json', 'r') as f:
-            test_data = json.load(f)
+        # Load training data
+        try:
+            train_data, _ = get_train_test_data()
+            logger.info(f"Successfully loaded {len(train_data)} training records from API")
+        except Exception as e:
+            logger.warning(f"Failed to fetch data from API: {e}")
+            # Fallback to static files if API fails
+            with open('real_asteroid_data_train.json', 'r') as f:
+                train_data = json.load(f)
+            logger.info(f"Loaded {len(train_data)} training records from static file")
         
         # Convert to batch prediction format
         asteroids = []
-        for record in test_data:
-            asteroids.append(AsteroidFeatures(
-                object_id=record.get('object_name'),
-                name=record.get('object_name'),
-                distance_au=record['distance_au'],
-                velocity_kms=record['velocity_kms'],
-                diameter_km=record['diameter_km'],
-                v_infinity_kms=record['v_infinity_kms'],
-                is_pha=record['is_pha'],
-                orbit_class=record['orbit_class'],
-                eta_closest=record.get('approach_date'),
-                impact_probability=None  # Will be calculated
-            ))
-        
-        # Process predictions using the same logic as the batch endpoint
-        start_time = time.time()
-        predictions = []
-        successful = 0
-        failed = 0
-        
-        for i, asteroid in enumerate(asteroids):
+        for i, record in enumerate(train_data):
             try:
-                item_start_time = time.time()
+                # Debug: print first record structure
+                if i == 0:
+                    logger.info(f"First record keys: {list(record.keys())}")
                 
-                # Convert input to DataFrame (same as single predict)
-                input_df_raw = pd.DataFrame([asteroid.dict()])
-                
-                # Apply one-hot encoding for orbit_class (same as training)
-                input_df_processed = pd.get_dummies(input_df_raw, columns=['orbit_class'], prefix='class')
-                
-                # Ensure all training features are present
-                input_df_final = input_df_processed.reindex(columns=TRAINING_FEATURES, fill_value=0)
-                
-                # Make predictions
-                prediction_encoded = model_deps["model"].predict(input_df_final)[0]
-                probabilities = model_deps["model"].predict_proba(input_df_final)[0]
-                predicted_level = model_deps["label_map"][prediction_encoded]
-                risk_score = calculate_risk_score(probabilities)
-                confidence = get_confidence_score(probabilities)
-                
-                # Format probability results
-                prob_dict = {
-                    model_deps["label_map"].get(j, f"Unknown_{j}"): round(float(p), 4) 
-                    for j, p in enumerate(probabilities)
+                # Create AsteroidFeatures with proper error handling
+                asteroid_data = {
+                    'object_id': record.get('object_name', f'TRAIN-{i}'),
+                    'name': record.get('object_name', f'TRAIN-{i}'),
+                    'distance_au': float(record.get('distance_au', 0.1)),
+                    'velocity_kms': float(record.get('velocity_kms', 10.0)),
+                    'diameter_km': float(record.get('diameter_km', 0.1)),
+                    'v_infinity_kms': float(record.get('v_infinity_kms', 10.0)),
+                    'is_pha': bool(record.get('is_pha', False)),
+                    'orbit_class': record.get('orbit_class', 'APO'),
+                    'eta_closest': record.get('approach_date'),
+                    'impact_probability': None
                 }
                 
-                item_processing_time = (time.time() - item_start_time) * 1000
-                prediction_id = f"{batch_id}_item_{i}"
-                
-                # Calculate derived visualization fields
-                distance_km = calculate_distance_km(asteroid.distance_au)
-                energy_megaton = calculate_kinetic_energy_megaton(asteroid.diameter_km, asteroid.velocity_kms)
-                time_to_approach = calculate_time_to_approach(asteroid.eta_closest)
-                impact_prob = asteroid.impact_probability or estimate_impact_probability(
-                    asteroid.distance_au, asteroid.diameter_km, asteroid.is_pha
-                )
-                
-                predictions.append(PredictionResponse(
-                    # NEO Identification
-                    object_id=asteroid.object_id or f"TEST-{prediction_id}",
-                    name=asteroid.name or asteroid.object_id or f"TEST-{prediction_id}",
-                    
-                    # Timing and Approach Data
-                    eta_closest=asteroid.eta_closest,
-                    distance_km=round(distance_km, 2),
-                    distance_au=round(asteroid.distance_au, 6),
-                    
-                    # Physical and Motion Properties
-                    velocity_kms=round(asteroid.velocity_kms, 2),
-                    size_km=round(asteroid.diameter_km, 3),
-                    
-                    # Risk Assessment
-                    impact_probability=round(impact_prob, 6),
-                    predicted_risk_score=round(risk_score, 4),
-                    predicted_risk_level=predicted_level,
-                    confidence=round(confidence, 4),
-                    
-                    # Derived Visualization Fields
-                    time_to_approach_hours=round(time_to_approach, 2) if time_to_approach else None,
-                    energy_megaton=round(energy_megaton, 2),
-                    
-                    # Technical Details
-                    input_features=asteroid.dict(),
-                    prediction_probabilities=prob_dict,
-                    model_info={
-                        "model_type": "RandomForestClassifier",
-                        "features_used": len(TRAINING_FEATURES),
-                        "available_classes": list(model_deps["label_map"].values())
-                    },
-                    prediction_id=prediction_id,
-                    timestamp=datetime.now().isoformat(),
-                    processing_time_ms=round(item_processing_time, 2)
-                ))
-                successful += 1
+                asteroids.append(AsteroidFeatures(**asteroid_data))
                 
             except Exception as e:
-                logger.error(f"Failed to process test record {i}: {str(e)}")
-                failed += 1
+                logger.error(f"Error processing record {i}: {e}")
+                logger.error(f"Record content: {record}")
+                continue
         
-        total_processing_time = (time.time() - start_time) * 1000
-        app.state.prediction_count += successful
-        
-        return BatchPredictionResponse(
-            predictions=predictions,
-            batch_id=batch_id,
-            total_predictions=len(asteroids),
-            successful_predictions=successful,
-            failed_predictions=failed,
-            total_processing_time_ms=round(total_processing_time, 2)
-        )
-        
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Test data file not found. Run convert_cad_data.py first.")
-    except Exception as e:
-        logger.error(f"Error processing test data: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error processing test data: {str(e)}")
+        if not asteroids:
+            raise HTTPException(
+                status_code=500,
+                detail="No valid asteroid records could be processed"
+            )
+    except:
+        print("Something bad happened")
 
 
 # --- 8.7. Individual Record Endpoints ---
@@ -1305,6 +1230,48 @@ def get_train_predictions(
         
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=f"Data files not found: {str(e)}. Run convert_cad_data.py first.")
+    except Exception as e:
+        logger.error(f"Error processing combined data: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error processing combined data: {str(e)}")
+    
+@app.get("/data/all", response_model=BatchPredictionResponse)
+def get_all_predictions(
+    background_tasks: BackgroundTasks, 
+    client_ip: str = Depends(track_connection),
+    model_deps: Dict = Depends(get_model_dependency)
+):
+    """
+    Get predictions for all asteroids from both training and test datasets combined.
+    """
+    import time
+    batch_id = f"all_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    
+    try:
+        # Fetch fresh data from API
+        logger.info("Fetching all data from NASA API...")
+        train_data, test_data = get_train_test_data()
+        logger.info(f"Successfully fetched {len(train_data)} training and {len(test_data)} test records from API")
+        
+        # Combine both datasets
+        all_data = []
+        
+        # Add training data with metadata
+        for i, record in enumerate(train_data):
+            record_with_meta = record.copy()
+            record_with_meta['dataset_source'] = 'training'
+            record_with_meta['original_index'] = i
+            all_data.append(record_with_meta)
+        
+        # Add test data with metadata
+        for i, record in enumerate(test_data):
+            record_with_meta = record.copy()
+            record_with_meta['dataset_source'] = 'test'
+            record_with_meta['original_index'] = i
+            all_data.append(record_with_meta)
+        
+        # Convert to asteroids and process...
+        # [Rest of the logic similar to train/test endpoints]
+        
     except Exception as e:
         logger.error(f"Error processing combined data: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing combined data: {str(e)}")
