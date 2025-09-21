@@ -4,6 +4,8 @@ import { NEOData } from "../lib/neoService";
 interface SpaceVisualizationProps {
   neoData: NEOData[];
   className?: string;
+  setSelectedNEO?: (neo: string | null) => void;
+  selectedNEO?: string | null;
 }
 
 interface AsteroidPosition {
@@ -19,9 +21,10 @@ interface AsteroidPosition {
 
 const SpaceVisualization: React.FC<SpaceVisualizationProps> = ({
   neoData,
+  setSelectedNEO,
+  selectedNEO = null,
   className = "",
 }) => {
-  const [selectedAsteroid, setSelectedAsteroid] = useState<string | null>(null);
   const [currentWeek, setCurrentWeek] = useState(0);
 
   // Visualization dimensions
@@ -133,7 +136,8 @@ const SpaceVisualization: React.FC<SpaceVisualizationProps> = ({
       let attempts = 0;
       const maxAttempts = 36; // Try up to 36 different angles (10 degree increments)
       while (
-        checkCollision(x, y, normalizedSize, positions) &&
+        (currentAngle === 0 ||
+          checkCollision(x, y, normalizedSize, positions)) &&
         attempts < maxAttempts
       ) {
         currentAngle += Math.PI / 18; // 10 degrees
@@ -190,7 +194,7 @@ const SpaceVisualization: React.FC<SpaceVisualizationProps> = ({
   ]);
 
   const handleAsteroidClick = (asteroidId: string) => {
-    setSelectedAsteroid(selectedAsteroid === asteroidId ? null : asteroidId);
+    setSelectedNEO(selectedNEO === asteroidId ? null : asteroidId);
   };
 
   const handleWeekChange = (week: number) => {
@@ -199,29 +203,29 @@ const SpaceVisualization: React.FC<SpaceVisualizationProps> = ({
 
   return (
     <div className={`relative ${className}`}>
-      <div className="bg-black rounded-lg border border-green-500/50 overflow-hidden relative">
+      <div className="command-panel overflow-hidden relative p-2 pt-1">
         {/* Header */}
-        <div className="p-3 border-b border-green-500/50 bg-black/80">
+        <div className="p-3 border-b border-green-500/50 ">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-mono font-bold text-green-400 tracking-wider">
+              <h3 className="text-lg font-bold glow-primary tracking-wider mb-1">
                 RADAR SCOPE
               </h3>
-              <p className="text-xs text-green-300 font-mono">
+              <p className="text-xs text-muted-foreground">
                 TACTICAL DISPLAY - NEO TRACKING
               </p>
             </div>
             <div className="text-xs font-mono text-green-400">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                <span>ACTIVE</span>
+                <span className="glow-primary">ACTIVE</span>
               </div>
             </div>
           </div>
         </div>
 
         {/* Radar Display */}
-        <div className="p-4 relative">
+        <div className="p-4 relative flex justify-center">
           {/* Scanlines overlay */}
           <div
             className="absolute inset-0 pointer-events-none z-10"
@@ -239,11 +243,11 @@ const SpaceVisualization: React.FC<SpaceVisualizationProps> = ({
           <svg
             width={width}
             height={height}
-            className="rounded-lg bg-black relative"
+            className="rounded-lg bg-card relative"
             style={{
-              filter: "drop-shadow(0 0 10px rgba(34, 197, 94, 0.3))",
+              // filter: "drop-shadow(0 0 10px rgba(34, 197, 94, 0.3))",
               background:
-                "radial-gradient(circle at center, #001a00 0%, #000000 70%)",
+                "radial-gradient(circle at center, #001a00 0%, hsl(var(--card)) 70%)",
             }}
           >
             {/* Radar sweep animation */}
@@ -386,6 +390,63 @@ const SpaceVisualization: React.FC<SpaceVisualizationProps> = ({
             {/* Asteroids (radar blips) */}
             {asteroidPositions.map((asteroid) => (
               <g key={asteroid.id}>
+                {/* Trajectory line for selected asteroid */}
+                {selectedNEO === asteroid.id &&
+                  (() => {
+                    // Calculate trajectory line tangent to circle at asteroid's distance
+                    const asteroidDistancePixels = Math.sqrt(
+                      (asteroid.x - centerX) ** 2 + (asteroid.y - centerY) ** 2
+                    );
+
+                    // Angle from Earth center to asteroid
+                    const asteroidAngle = Math.atan2(
+                      asteroid.y - centerY,
+                      asteroid.x - centerX
+                    );
+
+                    // Tangent line is perpendicular to radius at asteroid position
+                    const tangentAngle = asteroidAngle + Math.PI / 2;
+
+                    // Make sure we extend the line far enough in both directions
+                    const lineExtension = Math.max(width, height);
+                    const dx = Math.cos(tangentAngle);
+                    const dy = Math.sin(tangentAngle);
+
+                    const startX = asteroid.x - lineExtension * dx;
+                    const startY = asteroid.y - lineExtension * dy;
+                    const endX = asteroid.x + lineExtension * dx;
+                    const endY = asteroid.y + lineExtension * dy;
+
+                    return (
+                      <line
+                        x1={startX}
+                        y1={startY}
+                        x2={endX}
+                        y2={endY}
+                        stroke="#fbbf24"
+                        strokeWidth="2"
+                        strokeDasharray="5,5"
+                        opacity="0.7"
+                        filter="url(#glow)"
+                      />
+                    );
+                  })()}
+
+                {/* Subtle pulse ring for all asteroids */}
+                <circle
+                  cx={asteroid.x}
+                  cy={asteroid.y}
+                  r={asteroid.size + 6}
+                  fill="none"
+                  stroke={
+                    asteroid.isPHA
+                      ? "rgba(239, 68, 68, 0.4)"
+                      : "rgba(34, 197, 94, 0.4)"
+                  }
+                  strokeWidth="1.5"
+                  className="animate-pulse"
+                />
+
                 {/* Asteroid radar blip */}
                 <circle
                   cx={asteroid.x}
@@ -399,9 +460,7 @@ const SpaceVisualization: React.FC<SpaceVisualizationProps> = ({
                   stroke={asteroid.isPHA ? "#ef4444" : "#22c55e"}
                   strokeWidth="1"
                   className={`cursor-pointer transition-all duration-200 ${
-                    selectedAsteroid === asteroid.id
-                      ? "opacity-100"
-                      : "opacity-80"
+                    selectedNEO === asteroid.id ? "opacity-100" : "opacity-80"
                   } hover:opacity-100`}
                   onClick={() => handleAsteroidClick(asteroid.id)}
                   filter="url(#glow)"
@@ -412,7 +471,7 @@ const SpaceVisualization: React.FC<SpaceVisualizationProps> = ({
                   <circle
                     cx={asteroid.x}
                     cy={asteroid.y}
-                    r={asteroid.size + 6}
+                    r={asteroid.size + 8}
                     fill="none"
                     stroke="rgba(239, 68, 68, 0.2)"
                     strokeWidth="1"
@@ -421,7 +480,7 @@ const SpaceVisualization: React.FC<SpaceVisualizationProps> = ({
                 )}
 
                 {/* Selection targeting reticle */}
-                {selectedAsteroid === asteroid.id && (
+                {selectedNEO === asteroid.id && (
                   <g>
                     <circle
                       cx={asteroid.x}
@@ -478,9 +537,11 @@ const SpaceVisualization: React.FC<SpaceVisualizationProps> = ({
         <div className="px-4 py-3 border-t border-green-500/30  from-black via-gray-900 to-black">
           <div className="flex items-center justify-between mb-2">
             <div className="text-xs font-mono text-green-400">
-              <span className="text-green-300">TEMPORAL NAVIGATION</span>
+              <span className="text-xs text-muted-foreground">
+                TEMPORAL NAVIGATION
+              </span>
             </div>
-            <div className="text-xs font-mono text-green-400">
+            <div className="text-xs text-muted-foreground">
               WEEK {currentWeek + 1} OF {timeRange.weeks}
             </div>
           </div>
@@ -488,7 +549,7 @@ const SpaceVisualization: React.FC<SpaceVisualizationProps> = ({
           {/* Timeline Slider */}
           <div className="relative">
             {/* Timeline background with grid */}
-            <div className="h-8 bg-black border border-green-500/50 rounded relative overflow-hidden">
+            <div className="h-8 bg-card border rounded relative overflow-hidden">
               {/* Grid lines */}
               <div className="absolute inset-0 opacity-20">
                 {Array.from({ length: timeRange.weeks + 1 }).map((_, i) => (
@@ -585,7 +646,7 @@ const SpaceVisualization: React.FC<SpaceVisualizationProps> = ({
         </div>
 
         {/* Status panel */}
-        <div className="p-3 border-t border-green-500/50 bg-black/80">
+        <div className="p-3 border-t border-green-500/50">
           <div className="flex items-center justify-between text-xs font-mono">
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1">
@@ -607,10 +668,10 @@ const SpaceVisualization: React.FC<SpaceVisualizationProps> = ({
           </div>
 
           {/* Selected object details */}
-          {selectedAsteroid &&
+          {selectedNEO &&
             (() => {
               const selected = asteroidPositions.find(
-                (a) => a.id === selectedAsteroid
+                (a) => a.id === selectedNEO
               );
               return selected ? (
                 <div className="mt-2 p-2 bg-green-900/20 rounded border border-green-500/30">

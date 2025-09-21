@@ -9,6 +9,7 @@ const Index = () => {
   const [neoData, setNeoData] = useState<NEOData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedNEO, setSelectedNEO] = useState<string | null>(null);
 
   useEffect(() => {
     const loadMockData = () => {
@@ -36,7 +37,9 @@ const Index = () => {
       <header className="border-b border-primary/30 p-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold glow-primary">STAR SHIELD</h1>
+            <h1 className="text-2xl font-bold glow-primary mb-1">
+              STAR SHIELD
+            </h1>
             <p className="text-sm text-muted-foreground">
               Near Earth Object Tracking & Threat Assessment System
             </p>
@@ -53,16 +56,26 @@ const Index = () => {
       </div>
 
       {/* Main Dashboard Grid */}
-      <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="p-4 grid grid-cols-1 lg:grid-cols-4 gap-4">
         {/* Left Column */}
-        <div className="lg:col-span-1 space-y-4">
-          <SpaceVisualization neoData={neoData} className="h-full" />
+        <div className="lg:col-span-2 space-y-4">
+          <SpaceVisualization
+            neoData={neoData}
+            setSelectedNEO={setSelectedNEO}
+            selectedNEO={selectedNEO}
+            className="h-full"
+          />
         </div>
 
         {/* Right Column */}
-        <div className="space-y-4">
+        <div className="space-y-4 lg:col-span-2">
           <SystemStatus neoData={neoData} loading={loading} />
-          <NEOTracker neoData={neoData} loading={loading} />
+          <NEOTracker
+            neoData={neoData}
+            loading={loading}
+            selectedNEO={selectedNEO}
+            setSelectedNEO={setSelectedNEO}
+          />
         </div>
       </div>
     </div>

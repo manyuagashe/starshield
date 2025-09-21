@@ -6,8 +6,9 @@ import {
   Search,
   SortAsc,
   SortDesc,
+  X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ThreatIndicator } from "./ThreatIndicator";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -31,13 +32,25 @@ type SortDirection = "asc" | "desc";
 export const NEOTracker = ({
   neoData,
   loading,
+  selectedNEO,
+  setSelectedNEO,
 }: {
   neoData: NEOData[];
   loading: boolean;
+  selectedNEO: string | null;
+  setSelectedNEO: (id: string | null) => void;
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState<SortField>("impactProbability");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+
+  useEffect(() => {
+    console.log("selectedNEO changed:", selectedNEO);
+    if (selectedNEO) {
+      console.log("setting search");
+      setSearchTerm(neoData.find((neo) => neo.id === selectedNEO)?.name || "");
+    }
+  }, [selectedNEO, neoData]);
 
   const filteredAndSortedData = useMemo(() => {
     let filtered = neoData;
@@ -160,8 +173,20 @@ export const NEOTracker = ({
             placeholder="Search by name..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 bg-background/50 border-primary/30 text-sm"
+            className="pl-10 pr-10 bg-background/50 border-primary/30 text-sm"
           />
+          {searchTerm && (
+            <button
+              onClick={() => {
+                setSearchTerm("");
+                setSelectedNEO(null);
+              }}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
@@ -234,7 +259,11 @@ export const NEOTracker = ({
         ) : (
           <>
             {filteredAndSortedData.map((neo) => (
-              <div key={neo.id} className="neo-tracking-item">
+              <div
+                key={neo.id}
+                className="neo-tracking-item"
+                onClick={() => setSelectedNEO(neo.id)}
+              >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-3">
                     <SortButton field="isPHA">
@@ -244,11 +273,6 @@ export const NEOTracker = ({
                       <span className="font-bold text-primary">{neo.name}</span>
                     </SortButton>
                   </div>
-                  <SortButton field="impactProbability">
-                    <div className="text-xs text-warning">
-                      IMPACT PROB: {neo.impactProbability.toFixed(3)}%
-                    </div>
-                  </SortButton>
                 </div>
 
                 <div className="grid grid-cols-4 gap-4 text-xs">
