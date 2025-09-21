@@ -318,7 +318,7 @@ def estimate_impact_probability(distance_au: float, diameter_km: float, is_pha: 
     size_factor = min(2.0, 1.0 + diameter_km)
     
     # PHA factor
-    pha_factor = 3.0 if is_pha else 1.0
+    pha_factor = 2.0 if is_pha else 2.0
     
     estimated_prob = base_probability * distance_factor * size_factor * pha_factor
     return min(0.01, estimated_prob)  # Cap at 1%
