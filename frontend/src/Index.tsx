@@ -1,29 +1,33 @@
-import { NEOTracker } from "@/components/NEOTracker";
-import { SystemStatus } from "@/components/SystemStatus";
 import { HowItWorks } from "@/components/HowItWorks";
+import { NEOTracker } from "@/components/NEOTracker";
+import SpaceVisualization from "@/components/SpaceVisualization";
+import { SystemStatus } from "@/components/SystemStatus";
 import { useEffect, useState } from "react";
-import { getNEOData, NEOData } from "./lib/neoService";
+import { getMockNEOData, NEOData } from "./lib/neoService";
 
 const Index = () => {
   const [neoData, setNeoData] = useState<NEOData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   useEffect(() => {
-    const fetchData = async () => {
+    const loadMockData = () => {
       try {
         setLoading(true);
         setError(null);
-        const data = await getNEOData();
+        // Using mock data for PHA refactor
+        const data = getMockNEOData();
         setNeoData(data);
       } catch (error) {
-        console.error("Error fetching NEO data:", error);
-        setError("Failed to fetch NEO data. Please check if the backend is running.");
+        console.error("Error loading mock NEO data:", error);
+        setError("Failed to load NEO data.");
       } finally {
         setLoading(false);
       }
     };
-    fetchData();
+
+    // Simulate async loading for loading state demonstration
+    setTimeout(loadMockData, 1000);
   }, []);
 
   return (
@@ -49,15 +53,16 @@ const Index = () => {
       </div>
 
       {/* Main Dashboard Grid */}
-      <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Left Column */}
-        <div className="lg:col-span-2 space-y-4">
-          <NEOTracker neoData={neoData} loading={loading} />
+        <div className="lg:col-span-1 space-y-4">
+          <SpaceVisualization neoData={neoData} className="h-full" />
         </div>
 
         {/* Right Column */}
         <div className="space-y-4">
-          <SystemStatus neoData={neoData} loading={loading}/>
+          <SystemStatus neoData={neoData} loading={loading} />
+          <NEOTracker neoData={neoData} loading={loading} />
         </div>
       </div>
     </div>

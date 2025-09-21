@@ -26,7 +26,7 @@ type SortField =
   | "velocity"
   | "impactProbability"
   | "timeToClosestApproach"
-  | "threatLevel";
+  | "isPHA";
 type SortDirection = "asc" | "desc";
 export const NEOTracker = ({
   neoData,
@@ -53,7 +53,6 @@ export const NEOTracker = ({
     return [...filtered].sort((a, b) => {
       let aValue: number | string;
       let bValue: number | string;
-      const threatOrder = { LOW: 1, MEDIUM: 2, HIGH: 3, CRITICAL: 4 };
 
       switch (sortField) {
         case "name":
@@ -80,9 +79,9 @@ export const NEOTracker = ({
           aValue = a.timeToClosestApproach;
           bValue = b.timeToClosestApproach;
           break;
-        case "threatLevel":
-          aValue = threatOrder[a.threatLevel as keyof typeof threatOrder] || 0;
-          bValue = threatOrder[b.threatLevel as keyof typeof threatOrder] || 0;
+        case "isPHA":
+          aValue = a.isPHA ? 1 : 0;
+          bValue = b.isPHA ? 1 : 0;
           break;
         default:
           aValue = a.impactProbability;
@@ -174,7 +173,7 @@ export const NEOTracker = ({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="threatLevel">Threat Level</SelectItem>
+              <SelectItem value="isPHA">PHA Status</SelectItem>
               <SelectItem value="impactProbability">
                 Impact Probability
               </SelectItem>
@@ -238,8 +237,8 @@ export const NEOTracker = ({
               <div key={neo.id} className="neo-tracking-item">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-3">
-                    <SortButton field="threatLevel">
-                      <ThreatIndicator level={neo.threatLevel} />
+                    <SortButton field="isPHA">
+                      <ThreatIndicator isPHA={neo.isPHA} />
                     </SortButton>
                     <SortButton field="name">
                       <span className="font-bold text-primary">{neo.name}</span>

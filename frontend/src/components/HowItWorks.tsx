@@ -180,14 +180,10 @@ export const HowItWorks = ({
                   {loading ? (
                     <div className="w-4 h-4 mx-auto border border-blue-400 border-t-transparent rounded-full animate-spin"></div>
                   ) : (
-                    neoData.filter(
-                      (neo) =>
-                        neo.threatLevel === "HIGH" ||
-                        neo.threatLevel === "CRITICAL"
-                    ).length
+                    neoData.filter((neo) => neo.isPHA).length
                   )}
                 </div>
-                <div className="text-xs text-blue-300">High Priority</div>
+                <div className="text-xs text-blue-300">PHA Objects</div>
               </CardContent>
             </Card>
             <Card className="bg-purple-500/10 border-purple-500/30 tutorial-card-hover">
@@ -241,7 +237,7 @@ export const HowItWorks = ({
             <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-lg" />
             <div className="relative p-3 space-y-3">
               {/* Connection lines */}
-              <div className="absolute left-6 top-12 bottom-12 w-0.5 bg-gradient-to-b from-green-400 via-orange-400 to-blue-400 tutorial-data-flow" />
+              {/* <div className="absolute left-7 top-12 bottom-12 w-0.5 bg-gradient-to-b from-green-400 via-orange-400 to-blue-400 tutorial-data-flow" /> */}
 
               <div className="flex items-center gap-3 p-2 rounded-lg bg-primary/10 border border-primary/30 hover:bg-primary/20 transition-all cursor-pointer tutorial-card-hover group">
                 <div className="relative">
@@ -347,10 +343,10 @@ export const HowItWorks = ({
               <span className="font-bold text-lg">Random Forest Algorithm</span>
             </div>
             <p className="text-sm text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-              Our model uses an ensemble of 100+ decision trees that each
-              analyze asteroid characteristics independently. Like a panel of
-              experts, each tree "votes" on the threat level, and the majority
-              decision becomes our final classification.
+              Our model uses an ensemble of decision trees that each analyze
+              asteroid characteristics independently. Like a panel of experts,
+              each tree "votes" on the threat level, and the majority decision
+              becomes our final classification.
             </p>
             <div className="flex justify-center gap-4 text-xs">
               <div className="flex items-center gap-1">
@@ -405,9 +401,9 @@ export const HowItWorks = ({
           {/* Pipeline Timeline */}
           <div className="relative pb-4">
             {/* Pipeline Flow Line - positioned at icon level */}
-            <div className="absolute top-8 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-400 to-orange-400 opacity-30"></div>
+            <div className="absolute top-7 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-400 to-orange-400 opacity-30"></div>
             <div
-              className="absolute top-8 left-0 h-0.5 bg-gradient-to-r from-blue-400 to-orange-400 transition-all duration-1000"
+              className="absolute top-7 left-0 h-0.5 bg-gradient-to-r from-blue-400 to-orange-400 transition-all duration-1000"
               style={{
                 width:
                   simulationStep >= 3
@@ -552,7 +548,9 @@ export const HowItWorks = ({
                   }`}
                 >
                   {simulationStep >= 3 && neoData.length > 0
-                    ? neoData[0].threatLevel
+                    ? neoData[0].isPHA
+                      ? "PHA"
+                      : "SAFE"
                     : "---"}
                 </span>
                 {simulationStep >= 3 && neoData.length > 0 && (
@@ -572,8 +570,9 @@ export const HowItWorks = ({
                 <span className="text-sm font-medium">Analysis Complete</span>
               </div>
               <p className="text-xs text-muted-foreground">
-                ML classified {neoData[0].name} as {neoData[0].threatLevel} risk
-                • Impact probability: {neoData[0].impactProbability.toFixed(3)}%
+                ML classified {neoData[0].name} as{" "}
+                {neoData[0].isPHA ? "PHA" : "SAFE"}• Impact probability:{" "}
+                {neoData[0].impactProbability.toFixed(3)}%
               </p>
             </div>
           )}
@@ -595,36 +594,19 @@ export const HowItWorks = ({
                 Current Threat Distribution
               </div>
             </div>
-            <div className="grid grid-cols-4 gap-3">
-              <div className="flex flex-col items-center gap-2">
-                <div className="w-4 h-4 rounded bg-green-400"></div>
-                <span className="text-xs font-medium">LOW</span>
-                <span className="text-lg font-bold text-green-400">
-                  {neoData.filter((neo) => neo.threatLevel === "LOW").length}
-                </span>
-              </div>
-              <div className="flex flex-col items-center gap-2">
-                <div className="w-4 h-4 rounded bg-yellow-400"></div>
-                <span className="text-xs font-medium">MEDIUM</span>
-                <span className="text-lg font-bold text-yellow-400">
-                  {neoData.filter((neo) => neo.threatLevel === "MEDIUM").length}
-                </span>
-              </div>
+            <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col items-center gap-2">
                 <div className="w-4 h-4 rounded bg-red-400"></div>
-                <span className="text-xs font-medium">HIGH</span>
+                <span className="text-xs font-medium">PHA</span>
                 <span className="text-lg font-bold text-red-400">
-                  {neoData.filter((neo) => neo.threatLevel === "HIGH").length}
+                  {neoData.filter((neo) => neo.isPHA).length}
                 </span>
               </div>
               <div className="flex flex-col items-center gap-2">
-                <div className="w-4 h-4 rounded bg-red-600"></div>
-                <span className="text-xs font-medium">CRITICAL</span>
-                <span className="text-lg font-bold text-red-600">
-                  {
-                    neoData.filter((neo) => neo.threatLevel === "CRITICAL")
-                      .length
-                  }
+                <div className="w-4 h-4 rounded bg-green-400"></div>
+                <span className="text-xs font-medium">SAFE</span>
+                <span className="text-lg font-bold text-green-400">
+                  {neoData.filter((neo) => !neo.isPHA).length}
                 </span>
               </div>
             </div>

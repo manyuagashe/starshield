@@ -6,13 +6,13 @@ interface NEOData {
   size: number; // meters
   distance: number; // million km
   velocity: number; // km/s
-  threatLevel: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  isPHA: boolean; // is potentially hazardous asteroid
   timeToClosestApproach: number; // hours
   impactProbability: number; // percentage
 }
 
 async function getNEOData(): Promise<NEOData[]> {
-  const response = await apiClient.get("http://localhost:8000/data/some");
+  const response = await apiClient.get("/data/some");
   console.log("Fetched NEO data:", response.data.predictions);
   return response.data.predictions.map(
     (item) =>
@@ -22,8 +22,7 @@ async function getNEOData(): Promise<NEOData[]> {
         size: item.size_km * 1000, // Convert km to meters
         distance: item.distance_km / 1_000_000,
         velocity: item.velocity_kms,
-        threatLevel:
-          item.predicted_risk_level.toUpperCase() as NEOData["threatLevel"],
+        isPHA: Boolean(item.is_pha),
         timeToClosestApproach: item.eta_closest
           ? Math.max(
               0,
@@ -78,6 +77,107 @@ function getMockNEOData(): NEOData[] {
       size: 1.0,
       baseDistance: 0.07,
     },
+    // Additional non-PHA objects (safe asteroids)
+    {
+      name: "2024-AB11",
+      size: 0.08, // Too small for PHA
+      baseDistance: 0.03,
+    },
+    {
+      name: "2024-BC22",
+      size: 0.12, // Too small for PHA
+      baseDistance: 0.04,
+    },
+    {
+      name: "2024-CD33",
+      size: 0.25,
+      baseDistance: 0.18, // Too distant for PHA
+    },
+    {
+      name: "2024-DE44",
+      size: 0.35,
+      baseDistance: 0.22, // Too distant for PHA
+    },
+    {
+      name: "2024-EF55",
+      size: 0.09, // Too small for PHA
+      baseDistance: 0.08,
+    },
+    {
+      name: "2024-FG66",
+      size: 0.45,
+      baseDistance: 0.15, // Too distant for PHA
+    },
+    {
+      name: "2024-GH77",
+      size: 0.11, // Too small for PHA
+      baseDistance: 0.06,
+    },
+    {
+      name: "2024-HI88",
+      size: 0.28,
+      baseDistance: 0.25, // Too distant for PHA
+    },
+    {
+      name: "2024-IJ99",
+      size: 0.13, // Too small for PHA
+      baseDistance: 0.09,
+    },
+    {
+      name: "2024-JK00",
+      size: 0.52,
+      baseDistance: 0.19, // Too distant for PHA
+    },
+    {
+      name: "2024-KL11",
+      size: 0.07, // Too small for PHA
+      baseDistance: 0.04,
+    },
+    {
+      name: "2024-LM22",
+      size: 0.33,
+      baseDistance: 0.16, // Too distant for PHA
+    },
+    {
+      name: "2024-MN33",
+      size: 0.1, // Too small for PHA
+      baseDistance: 0.07,
+    },
+    {
+      name: "2024-NO44",
+      size: 0.41,
+      baseDistance: 0.14, // Too distant for PHA
+    },
+    {
+      name: "2024-OP55",
+      size: 0.06, // Too small for PHA
+      baseDistance: 0.05,
+    },
+    {
+      name: "2024-PQ66",
+      size: 0.38,
+      baseDistance: 0.21, // Too distant for PHA
+    },
+    {
+      name: "2024-QR77",
+      size: 0.12, // Too small for PHA
+      baseDistance: 0.08,
+    },
+    {
+      name: "2024-RS88",
+      size: 0.29,
+      baseDistance: 0.17, // Too distant for PHA
+    },
+    {
+      name: "2024-ST99",
+      size: 0.08, // Too small for PHA
+      baseDistance: 0.06,
+    },
+    {
+      name: "2024-TU00",
+      size: 0.46,
+      baseDistance: 0.13, // Too distant for PHA
+    },
   ];
 
   return objects.map((obj, index) => {
@@ -86,14 +186,16 @@ function getMockNEOData(): NEOData[] {
     const velocity = 15 + Math.random() * 25;
     const timeToClosest = (distance * 149.6) / (velocity * 0.0036); // Convert to hours
 
-    let threatLevel: NEOData["threatLevel"] = "LOW";
-    let impactProbability = 0;
+    // Determine if asteroid is potentially hazardous
+    // PHA criteria: minimum orbital intersection distance (MOID) of 0.05 AU (7.5 million km)
+    // and diameter of at least 140 meters (0.14 km)
+    const isPHA = distance < 0.05 && obj.size > 0.14;
 
-    if (distance < 0.05) {
-      threatLevel = obj.size > 1.5 ? "CRITICAL" : "HIGH";
+    // Impact probability increases with size and decreases with distance
+    let impactProbability = 0;
+    if (isPHA) {
       impactProbability = obj.size > 1.5 ? 0.15 : 0.05;
     } else if (distance < 0.1) {
-      threatLevel = obj.size > 1 ? "HIGH" : "MEDIUM";
       impactProbability = obj.size > 1 ? 0.03 : 0.01;
     }
 
@@ -103,7 +205,7 @@ function getMockNEOData(): NEOData[] {
       size: obj.size,
       distance,
       velocity,
-      threatLevel,
+      isPHA,
       timeToClosestApproach: timeToClosest,
       impactProbability,
     };

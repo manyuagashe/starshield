@@ -18,12 +18,8 @@ export const SystemStatus = ({
     return () => clearInterval(timer);
   }, []);
 
-  const immediateThreats = neoData.filter(
-    (neo) => neo.threatLevel === "CRITICAL"
-  ).length;
-  const highPriorityThreats = neoData.filter((neo) =>
-    ["HIGH", "MEDIUM"].includes(neo.threatLevel)
-  ).length;
+  const phaThreats = neoData.filter((neo) => neo.isPHA).length;
+  const nonPhaObjects = neoData.filter((neo) => !neo.isPHA).length;
 
   return (
     <div className="command-panel">
@@ -63,16 +59,12 @@ export const SystemStatus = ({
                 <span className="text-primary font-mono">{neoData.length}</span>
               </div>
               <div className="flex justify-between">
-                <span>HIGH PRIORITY:</span>
-                <span className="text-warning font-mono">
-                  {highPriorityThreats}
-                </span>
+                <span>NON-PHA OBJECTS:</span>
+                <span className="text-success font-mono">{nonPhaObjects}</span>
               </div>
               <div className="flex justify-between">
-                <span>IMMEDIATE THREATS:</span>
-                <span className="text-destructive font-mono">
-                  {immediateThreats}
-                </span>
+                <span>PHA THREATS:</span>
+                <span className="text-destructive font-mono">{phaThreats}</span>
               </div>
             </div>
           )}
