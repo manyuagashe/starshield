@@ -1,4 +1,5 @@
 import { NEOData } from "@/lib/neoService";
+import { Badge } from "@/components/ui/badge";
 import {
   ArrowUpDown,
   ChevronDown,
@@ -25,7 +26,6 @@ type SortField =
   | "size"
   | "distance"
   | "velocity"
-  | "impactProbability"
   | "timeToClosestApproach"
   | "isPHA";
 type SortDirection = "asc" | "desc";
@@ -34,14 +34,20 @@ export const NEOTracker = ({
   loading,
   selectedNEO,
   setSelectedNEO,
+  sizeFilter,
+  velocityFilter,
+  onClearFilters,
 }: {
   neoData: NEOData[];
   loading: boolean;
   selectedNEO: string | null;
   setSelectedNEO: (id: string | null) => void;
+  sizeFilter?: string | null;
+  velocityFilter?: string | null;
+  onClearFilters?: () => void;
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortField, setSortField] = useState<SortField>("impactProbability");
+  const [sortField, setSortField] = useState<SortField>("isPHA");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
   useEffect(() => {
@@ -60,6 +66,26 @@ export const NEOTracker = ({
       filtered = filtered.filter((neo) =>
         neo.name.toLowerCase().includes(searchTerm.toLowerCase())
       );
+    }
+
+    // Apply size filter
+    if (sizeFilter) {
+      filtered = filtered.filter((neo) => {
+        if (sizeFilter === "Small") return neo.size < 0.5;
+        if (sizeFilter === "Medium") return neo.size >= 0.5 && neo.size < 1.5;
+        if (sizeFilter === "Large") return neo.size >= 1.5;
+        return true;
+      });
+    }
+
+    // Apply velocity filter
+    if (velocityFilter) {
+      filtered = filtered.filter((neo) => {
+        if (velocityFilter === "Slow") return neo.velocity < 15;
+        if (velocityFilter === "Medium") return neo.velocity >= 15 && neo.velocity < 25;
+        if (velocityFilter === "Fast") return neo.velocity >= 25;
+        return true;
+      });
     }
 
     // Apply sorting
@@ -84,10 +110,6 @@ export const NEOTracker = ({
           aValue = a.velocity;
           bValue = b.velocity;
           break;
-        case "impactProbability":
-          aValue = a.impactProbability;
-          bValue = b.impactProbability;
-          break;
         case "timeToClosestApproach":
           aValue = a.timeToClosestApproach;
           bValue = b.timeToClosestApproach;
@@ -97,8 +119,8 @@ export const NEOTracker = ({
           bValue = b.isPHA ? 1 : 0;
           break;
         default:
-          aValue = a.impactProbability;
-          bValue = b.impactProbability;
+          aValue = a.isPHA ? 1 : 0;
+          bValue = b.isPHA ? 1 : 0;
       }
 
       if (typeof aValue === "string" && typeof bValue === "string") {
@@ -109,7 +131,7 @@ export const NEOTracker = ({
         return sortDirection === "asc" ? comparison : -comparison;
       }
     });
-  }, [neoData, searchTerm, sortField, sortDirection]);
+  }, [neoData, searchTerm, sortField, sortDirection, sizeFilter, velocityFilter]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -199,9 +221,6 @@ export const NEOTracker = ({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="isPHA">PHA Status</SelectItem>
-              <SelectItem value="impactProbability">
-                Impact Probability
-              </SelectItem>
               <SelectItem value="size">Size</SelectItem>
               <SelectItem value="distance">Distance</SelectItem>
               <SelectItem value="velocity">Velocity</SelectItem>
@@ -235,6 +254,34 @@ export const NEOTracker = ({
           </Button>
         </div>
       </div>
+
+      {/* Active Filter Indicators */}
+      {(sizeFilter || velocityFilter) && (
+        <div className="flex items-center gap-2 mb-3 p-2 bg-primary/10 rounded-lg border border-primary/20">
+          <span className="text-xs text-muted-foreground font-mono">ACTIVE FILTERS:</span>
+          {sizeFilter && (
+            <Badge variant="outline" className="text-xs bg-blue-500/20 text-blue-400 border-blue-500/30">
+              Size: {sizeFilter}
+            </Badge>
+          )}
+          {velocityFilter && (
+            <Badge variant="outline" className="text-xs bg-green-500/20 text-green-400 border-green-500/30">
+              Velocity: {velocityFilter}
+            </Badge>
+          )}
+          {onClearFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClearFilters}
+              className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3 w-3 mr-1" />
+              Clear
+            </Button>
+          )}
+        </div>
+      )}
 
       <div className="space-y-2">
         {loading ? (

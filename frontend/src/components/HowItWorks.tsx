@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NEOData } from "../lib/neoService";
+import { RiskAssessmentMatrix } from "./RiskAssessmentMatrix";
 import "./HowItWorks.css";
 
 interface TutorialStep {
@@ -88,7 +89,7 @@ export const HowItWorks = ({
           setIsOpen(false);
           break;
         case " ":
-          if (currentStep === 2) {
+          if (currentStep === 1) {
             event.preventDefault();
             setIsPlaying(!isPlaying);
           }
@@ -102,7 +103,7 @@ export const HowItWorks = ({
 
   // Auto-advance simulation
   useEffect(() => {
-    if (isPlaying && currentStep === 2) {
+    if (isPlaying && currentStep === 1) {
       // Risk calculation step
       const interval = setInterval(() => {
         setSimulationStep((prev) => {
@@ -159,7 +160,7 @@ export const HowItWorks = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 mt-4">
+          <div className="grid grid-cols-2 gap-3 mt-4">
             <Card className="bg-green-500/10 border-green-500/30 tutorial-card-hover">
               <CardContent className="p-2 text-center">
                 <Activity className="h-4 w-4 mx-auto mb-1 text-green-400 animate-pulse" />
@@ -186,183 +187,57 @@ export const HowItWorks = ({
                 <div className="text-xs text-blue-300">PHA Objects</div>
               </CardContent>
             </Card>
-            <Card className="bg-purple-500/10 border-purple-500/30 tutorial-card-hover">
-              <CardContent className="p-2 text-center">
-                <Sparkles className="h-4 w-4 mx-auto mb-1 text-purple-400 animate-bounce" />
-                <div className="text-lg font-bold text-purple-400">
-                  {loading ? (
-                    <div className="w-4 h-4 mx-auto border border-purple-400 border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <>
-                      {Math.round(
-                        neoData.reduce(
-                          (sum, neo) => sum + neo.impactProbability,
-                          0
-                        ) * 1000
-                      ) / 1000}
-                      %
-                    </>
-                  )}
-                </div>
-                <div className="text-xs text-purple-300">Avg Impact Risk</div>
-              </CardContent>
-            </Card>
           </div>
         </div>
       ),
     },
     {
       id: 1,
-      title: "Data Collection Network",
-      icon: <Satellite className="h-6 w-6 text-blue-400 animate-pulse" />,
-      content: (
-        <div className="space-y-3 w-full max-w-3xl">
-          <div className="text-center mb-3">
-            <p className="text-sm text-muted-foreground mb-2">
-              We retrieve real-time asteroid data from NASA's official APIs
-            </p>
-            <a
-              href="https://api.nasa.gov/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-blue-400 hover:text-blue-300 transition-colors text-sm underline"
-            >
-              <Globe className="h-4 w-4" />
-              Visit NASA API Portal
-              <ExternalLink className="h-3 w-3" />
-            </a>
-          </div>
-
-          <div className="relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-lg" />
-            <div className="relative p-3 space-y-3">
-              {/* Connection lines */}
-              {/* <div className="absolute left-7 top-12 bottom-12 w-0.5 bg-gradient-to-b from-green-400 via-orange-400 to-blue-400 tutorial-data-flow" /> */}
-
-              <div className="flex items-center gap-3 p-2 rounded-lg bg-primary/10 border border-primary/30 hover:bg-primary/20 transition-all cursor-pointer tutorial-card-hover group">
-                <div className="relative">
-                  <Globe className="h-5 w-5 text-green-400 group-hover:animate-spin" />
-                  <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-green-400 rounded-full animate-ping" />
-                </div>
-                <div className="flex-1">
-                  <div className="font-semibold text-sm">
-                    NASA NEO Web Service (NeoWs)
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    RESTful API providing asteroid orbital data, size estimates,
-                    and close approach details
-                  </div>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <div className="text-xs text-green-400">● LIVE</div>
-                    <div className="text-xs text-muted-foreground">
-                      HTTP requests every 15 min
-                    </div>
-                  </div>
-                </div>
-                <Badge variant="secondary" className="text-xs">
-                  JSON
-                </Badge>
-              </div>
-
-              <div className="flex items-center gap-3 p-2 rounded-lg bg-primary/10 border border-primary/30 hover:bg-primary/20 transition-all cursor-pointer tutorial-card-hover group">
-                <div className="relative">
-                  <Target className="h-5 w-5 text-orange-400 group-hover:animate-bounce" />
-                  <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-orange-400 rounded-full animate-ping" />
-                </div>
-                <div className="flex-1">
-                  <div className="font-semibold text-sm">JPL SENTRY API</div>
-                  <div className="text-xs text-muted-foreground">
-                    Impact probability calculations and risk assessments for
-                    potentially hazardous asteroids
-                  </div>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <div className="text-xs text-orange-400">● COMPUTING</div>
-                    <div className="text-xs text-muted-foreground">
-                      Processed via API calls
-                    </div>
-                  </div>
-                </div>
-                <Badge variant="secondary" className="text-xs">
-                  API
-                </Badge>
-              </div>
-
-              <div className="flex items-center gap-3 p-2 rounded-lg bg-primary/10 border border-primary/30 hover:bg-primary/20 transition-all cursor-pointer tutorial-card-hover group">
-                <div className="relative">
-                  <BarChart3 className="h-5 w-5 text-blue-400 group-hover:animate-pulse" />
-                  <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-blue-400 rounded-full animate-ping" />
-                </div>
-                <div className="flex-1">
-                  <div className="font-semibold text-sm">
-                    CNEOS Close Approach Data
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Trajectory predictions and orbital mechanics from NASA's
-                    Center for NEO Studies
-                  </div>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <div className="text-xs text-blue-400">● ANALYZING</div>
-                    <div className="text-xs text-muted-foreground">
-                      Fetched via web scraping
-                    </div>
-                  </div>
-                </div>
-                <Badge variant="secondary" className="text-xs">
-                  CSV
-                </Badge>
-              </div>
-            </div>
-          </div>
-
-          {/* Data flow visualization */}
-          <div className="mt-3 p-3 bg-muted/20 rounded-lg border border-muted">
-            <div className="text-center text-xs text-muted-foreground mb-2">
-              Our Data Pipeline
-            </div>
-            <div className="flex items-center justify-between text-xs">
-              <div>API Fetch</div>
-              <div className="flex-1 mx-2 h-0.5 bg-gradient-to-r from-green-400 to-blue-400 tutorial-progress"></div>
-              <div>Parse JSON</div>
-              <div className="flex-1 mx-2 h-0.5 bg-gradient-to-r from-blue-400 to-purple-400 tutorial-progress"></div>
-              <div>ML Analysis</div>
-            </div>
-          </div>
-        </div>
-      ),
-    },
-    {
-      id: 2,
       title: "ML Risk Assessment",
       icon: <Brain className="h-6 w-6 text-orange-400" />,
       content: (
-        <div className="space-y-4 w-full max-w-4xl">
-          {/* Main Explanation - Top Focus */}
-          <div className="text-center space-y-3 p-4 bg-gradient-to-r from-orange-500/10 to-purple-500/10 rounded-lg border border-orange-500/30">
-            <div className="flex items-center justify-center gap-2">
-              <Brain className="h-6 w-6 text-orange-400" />
-              <span className="font-bold text-lg">Random Forest Algorithm</span>
+        <div className="space-y-2 w-full max-w-4xl">
+          {/* Data Pipeline at top */}
+          <div className="p-2 bg-muted/20 rounded-lg border border-muted">
+            <div className="text-center text-xs text-muted-foreground mb-1">
+              Our Data Pipeline
             </div>
-            <p className="text-sm text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+            <div className="flex items-center justify-between text-xs">
+              <div>CAD API Fetch</div>
+              <div className="flex-1 mx-2 h-0.5 bg-gradient-to-r from-blue-400 to-purple-400 tutorial-progress"></div>
+              <div>Parse JSON</div>
+              <div className="flex-1 mx-2 h-0.5 bg-gradient-to-r from-purple-400 to-orange-400 tutorial-progress"></div>
+              <div>ML Analysis</div>
+            </div>
+          </div>
+
+          {/* Main Explanation - Compact */}
+          <div className="text-center space-y-2 p-3 bg-gradient-to-r from-orange-500/10 to-purple-500/10 rounded-lg border border-orange-500/30">
+            <div className="flex items-center justify-center gap-2">
+              <Brain className="h-5 w-5 text-orange-400" />
+              <span className="font-bold text-base">Random Forest Algorithm</span>
+            </div>
+            <p className="text-xs text-muted-foreground max-w-2xl mx-auto leading-relaxed">
               Our model uses an ensemble of decision trees that each analyze
               asteroid characteristics independently. Like a panel of experts,
               each tree "votes" on the threat level, and the majority decision
               becomes our final classification.
             </p>
-            <div className="flex justify-center gap-4 text-xs">
+            <div className="flex justify-center gap-3 text-xs">
               <div className="flex items-center gap-1">
-                <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
                 <span>Size Analysis</span>
               </div>
               <div className="flex items-center gap-1">
-                <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                <div className="w-1.5 h-1.5 bg-green-400 rounded-full"></div>
                 <span>Velocity Check</span>
               </div>
               <div className="flex items-center gap-1">
-                <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
+                <div className="w-1.5 h-1.5 bg-purple-400 rounded-full"></div>
                 <span>Distance Eval</span>
               </div>
               <div className="flex items-center gap-1">
-                <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
+                <div className="w-1.5 h-1.5 bg-orange-400 rounded-full"></div>
                 <span>Final Vote</span>
               </div>
             </div>
@@ -398,12 +273,12 @@ export const HowItWorks = ({
             </Badge>
           </div>
 
-          {/* Pipeline Timeline */}
-          <div className="relative pb-4">
+          {/* Pipeline Timeline - Compact */}
+          <div className="relative pb-2">
             {/* Pipeline Flow Line - positioned at icon level */}
-            <div className="absolute top-7 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-400 to-orange-400 opacity-30"></div>
+            <div className="absolute top-6 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-400 to-orange-400 opacity-30"></div>
             <div
-              className="absolute top-7 left-0 h-0.5 bg-gradient-to-r from-blue-400 to-orange-400 transition-all duration-1000"
+              className="absolute top-6 left-0 h-0.5 bg-gradient-to-r from-blue-400 to-orange-400 transition-all duration-1000"
               style={{
                 width:
                   simulationStep >= 3
@@ -418,29 +293,29 @@ export const HowItWorks = ({
               }}
             ></div>
 
-            {/* Pipeline Steps */}
+            {/* Pipeline Steps - More Compact */}
             <div className="flex justify-between items-start relative z-10">
               {/* Step 1: Size */}
               <div
-                className={`flex flex-col items-center p-3 rounded-lg transition-all duration-500 ${
+                className={`flex flex-col items-center p-2 rounded-lg transition-all duration-500 ${
                   simulationStep >= 0
                     ? "bg-blue-500/20 border border-blue-500/50 scale-105"
                     : "bg-muted/10"
                 }`}
               >
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center mb-3 ${
+                  className={`w-6 h-6 rounded-full flex items-center justify-center mb-2 ${
                     simulationStep >= 0
                       ? "bg-blue-400 animate-pulse"
                       : "bg-gray-400"
                   }`}
                 >
-                  <Target className="h-4 w-4 text-white" />
+                  <Target className="h-3 w-3 text-white" />
                 </div>
                 <span className="text-xs font-medium">Size</span>
                 <span className="text-xs text-muted-foreground">
                   {loading ? (
-                    <div className="w-4 h-4 mx-auto border border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-3 h-3 mx-auto border border-blue-400 border-t-transparent rounded-full animate-spin"></div>
                   ) : neoData.length > 0 ? (
                     `${(neoData[0].size * 1000).toFixed(0)}m`
                   ) : (
@@ -448,7 +323,7 @@ export const HowItWorks = ({
                   )}
                 </span>
                 {simulationStep >= 0 && !loading && neoData.length > 0 && (
-                  <div className="text-xs text-blue-400 mt-1">
+                  <div className="text-xs text-blue-400 mt-0.5">
                     {neoData[0].size > 1 ? "⚠ Large" : "✓ Small"}
                   </div>
                 )}
@@ -456,25 +331,25 @@ export const HowItWorks = ({
 
               {/* Step 2: Velocity */}
               <div
-                className={`flex flex-col items-center p-3 rounded-lg transition-all duration-500 ${
+                className={`flex flex-col items-center p-2 rounded-lg transition-all duration-500 ${
                   simulationStep >= 1
                     ? "bg-green-500/20 border border-green-500/50 scale-105"
                     : "bg-muted/10"
                 }`}
               >
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center mb-3 ${
+                  className={`w-6 h-6 rounded-full flex items-center justify-center mb-2 ${
                     simulationStep >= 1
                       ? "bg-green-400 animate-pulse"
                       : "bg-gray-400"
                   }`}
                 >
-                  <Zap className="h-4 w-4 text-white" />
+                  <Zap className="h-3 w-3 text-white" />
                 </div>
                 <span className="text-xs font-medium">Velocity</span>
                 <span className="text-xs text-muted-foreground">
                   {loading ? (
-                    <div className="w-4 h-4 mx-auto border border-green-400 border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-3 h-3 mx-auto border border-green-400 border-t-transparent rounded-full animate-spin"></div>
                   ) : neoData.length > 0 ? (
                     `${neoData[0].velocity.toFixed(1)} km/s`
                   ) : (
@@ -482,7 +357,7 @@ export const HowItWorks = ({
                   )}
                 </span>
                 {simulationStep >= 1 && !loading && neoData.length > 0 && (
-                  <div className="text-xs text-green-400 mt-1">
+                  <div className="text-xs text-green-400 mt-0.5">
                     {neoData[0].velocity > 20 ? "⚠ Fast" : "✓ Moderate"}
                   </div>
                 )}
@@ -490,25 +365,25 @@ export const HowItWorks = ({
 
               {/* Step 3: Distance */}
               <div
-                className={`flex flex-col items-center p-3 rounded-lg transition-all duration-500 ${
+                className={`flex flex-col items-center p-2 rounded-lg transition-all duration-500 ${
                   simulationStep >= 2
                     ? "bg-purple-500/20 border border-purple-500/50 scale-105"
                     : "bg-muted/10"
                 }`}
               >
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center mb-3 ${
+                  className={`w-6 h-6 rounded-full flex items-center justify-center mb-2 ${
                     simulationStep >= 2
                       ? "bg-purple-400 animate-pulse"
                       : "bg-gray-400"
                   }`}
                 >
-                  <Radio className="h-4 w-4 text-white" />
+                  <Radio className="h-3 w-3 text-white" />
                 </div>
                 <span className="text-xs font-medium">Distance</span>
                 <span className="text-xs text-muted-foreground">
                   {loading ? (
-                    <div className="w-4 h-4 mx-auto border border-purple-400 border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-3 h-3 mx-auto border border-purple-400 border-t-transparent rounded-full animate-spin"></div>
                   ) : neoData.length > 0 ? (
                     `${neoData[0].distance.toFixed(3)} AU`
                   ) : (
@@ -516,7 +391,7 @@ export const HowItWorks = ({
                   )}
                 </span>
                 {simulationStep >= 2 && !loading && neoData.length > 0 && (
-                  <div className="text-xs text-purple-400 mt-1">
+                  <div className="text-xs text-purple-400 mt-0.5">
                     {neoData[0].distance < 0.05 ? "⚠ Close" : "✓ Safe"}
                   </div>
                 )}
@@ -524,20 +399,20 @@ export const HowItWorks = ({
 
               {/* Step 4: Final Decision */}
               <div
-                className={`flex flex-col items-center p-3 rounded-lg transition-all duration-500 ${
+                className={`flex flex-col items-center p-2 rounded-lg transition-all duration-500 ${
                   simulationStep >= 3
                     ? "bg-orange-500/20 border border-orange-500/50 scale-110 shadow-lg"
                     : "bg-muted/10"
                 }`}
               >
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center mb-3 ${
+                  className={`w-6 h-6 rounded-full flex items-center justify-center mb-2 ${
                     simulationStep >= 3
                       ? "bg-orange-400 animate-bounce"
                       : "bg-gray-400"
                   }`}
                 >
-                  <Brain className="h-4 w-4 text-white" />
+                  <Brain className="h-3 w-3 text-white" />
                 </div>
                 <span className="text-xs font-medium">Decision</span>
                 <span
@@ -554,7 +429,7 @@ export const HowItWorks = ({
                     : "---"}
                 </span>
                 {simulationStep >= 3 && neoData.length > 0 && (
-                  <div className="text-xs text-orange-400 mt-1">
+                  <div className="text-xs text-orange-400 mt-0.5">
                     {neoData[0].impactProbability.toFixed(2)}% risk
                   </div>
                 )}
@@ -562,16 +437,16 @@ export const HowItWorks = ({
             </div>
           </div>
 
-          {/* Bottom Summary */}
+          {/* Bottom Summary - Compact */}
           {simulationStep >= 3 && !loading && neoData.length > 0 && (
-            <div className="text-center p-3 bg-gradient-to-r from-orange-500/10 to-red-500/10 rounded-lg border border-orange-500/30 animate-fade-in">
+            <div className="text-center p-2 bg-gradient-to-r from-orange-500/10 to-red-500/10 rounded-lg border border-orange-500/30 animate-fade-in">
               <div className="flex items-center justify-center gap-2 mb-1">
-                <CheckCircle className="h-4 w-4 text-orange-400" />
-                <span className="text-sm font-medium">Analysis Complete</span>
+                <CheckCircle className="h-3 w-3 text-orange-400" />
+                <span className="text-xs font-medium">Analysis Complete</span>
               </div>
               <p className="text-xs text-muted-foreground">
                 ML classified {neoData[0].name} as{" "}
-                {neoData[0].isPHA ? "PHA" : "SAFE"}• Impact probability:{" "}
+                {neoData[0].isPHA ? "PHA" : "SAFE"} • Impact probability:{" "}
                 {neoData[0].impactProbability.toFixed(3)}%
               </p>
             </div>
@@ -581,33 +456,141 @@ export const HowItWorks = ({
       interactive: true,
     },
     {
+      id: 2,
+      title: "Data Collection Network",
+      icon: <Satellite className="h-6 w-6 text-blue-400 animate-pulse" />,
+      content: (
+        <div className="space-y-3 w-full max-w-3xl">
+          <div className="text-center mb-3">
+            <p className="text-sm text-muted-foreground mb-2">
+              We retrieve real-time asteroid data from NASA's CAD (Close Approach Data) API
+            </p>
+            <a
+              href="https://api.nasa.gov/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-blue-400 hover:text-blue-300 transition-colors text-sm underline"
+            >
+              <Globe className="h-4 w-4" />
+              Visit NASA API Portal
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
+
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-lg" />
+            <div className="relative p-3 space-y-3">
+              <div className="flex items-center gap-3 p-2 rounded-lg bg-primary/10 border border-primary/30 hover:bg-primary/20 transition-all cursor-pointer tutorial-card-hover group">
+                <div className="relative">
+                  <BarChart3 className="h-5 w-5 text-blue-400 group-hover:animate-pulse" />
+                  <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-blue-400 rounded-full animate-ping" />
+                </div>
+                <div className="flex-1">
+                  <div className="font-semibold text-sm">
+                    CNEOS Close Approach Data (CAD)
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Trajectory predictions and orbital mechanics from NASA's
+                    Center for NEO Studies
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <div className="text-xs text-blue-400">● API</div>
+                    <div className="text-xs text-muted-foreground">
+                      requests processed as JSON
+                    </div>
+                  </div>
+                </div>
+                <Badge variant="secondary" className="text-xs">
+                  JSON
+                </Badge>
+              </div>
+            </div>
+          </div>
+
+          {/* Model Performance Section */}
+          <div className="bg-gradient-to-r from-orange-500/10 to-green-500/10 p-3 rounded-lg border border-orange-500/30">
+            <div className="flex items-center gap-2 mb-3">
+              <Brain className="h-4 w-4 text-orange-400" />
+              <div className="font-semibold text-sm">
+                Model Performance by PHA Status
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col items-center gap-2 p-2 rounded-lg bg-red-500/10 border border-red-500/30">
+                <div className="w-4 h-4 rounded bg-red-400"></div>
+                <span className="text-xs font-medium">PHA Asteroids</span>
+                <span className="text-lg font-bold text-red-400">84.38%</span>
+                <span className="text-xs text-muted-foreground">Accuracy</span>
+              </div>
+              <div className="flex flex-col items-center gap-2 p-2 rounded-lg bg-green-500/10 border border-green-500/30">
+                <div className="w-4 h-4 rounded bg-green-400"></div>
+                <span className="text-xs font-medium">Non-PHA Asteroids</span>
+                <span className="text-lg font-bold text-green-400">78.12%</span>
+                <span className="text-xs text-muted-foreground">Accuracy</span>
+              </div>
+            </div>
+            <div className="text-center mt-2">
+              <p className="text-xs text-muted-foreground">
+                Our Random Forest model shows higher accuracy for identifying true PHA objects compared to safe asteroids
+              </p>
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
       id: 3,
       title: "Dashboard Overview",
       icon: <BarChart3 className="h-6 w-6 text-green-400 animate-bounce" />,
       content: (
         <div className="space-y-3 w-full max-w-3xl">
-          {/* Threat Level Key */}
+          {/* Radar Scope Component */}
           <div className="bg-gradient-to-r from-green-500/10 to-red-500/10 p-3 rounded-lg border border-primary/30">
             <div className="flex items-center gap-2 mb-3">
-              <AlertTriangle className="h-4 w-4 text-orange-400" />
+              <Radio className="h-4 w-4 text-blue-400" />
               <div className="font-semibold text-sm">
-                Current Threat Distribution
+                Radar Scope
+              </div>
+              <Badge className="text-xs bg-green-500/20 text-green-400 border-green-500/30">
+                Interactive Visualization
+              </Badge>
+            </div>
+            <div className="text-xs text-muted-foreground space-y-2">
+              <div>
+                • <strong>Timeline Display:</strong> Asteroids appear only during their actual ETA week
+              </div>
+              <div>
+                • <strong>Detection Range:</strong> Limited to 0.25 AU from Earth for optimal tracking precision
+              </div>
+              <div>
+                • <strong>Color Coding:</strong> Red dots indicate PHA (Potentially Hazardous Asteroids), green dots show safe objects
+              </div>
+              <div>
+                • <strong>Trajectory Prediction:</strong> Click any asteroid to view its predicted path as a tangential line
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col items-center gap-2">
-                <div className="w-4 h-4 rounded bg-red-400"></div>
-                <span className="text-xs font-medium">PHA</span>
-                <span className="text-lg font-bold text-red-400">
-                  {neoData.filter((neo) => neo.isPHA).length}
-                </span>
+          </div>
+
+          {/* Risk Assessment Matrix */}
+          <div className="bg-gradient-to-r from-orange-500/10 to-red-500/10 p-3 rounded-lg border border-orange-500/30">
+            <div className="flex items-center gap-2 mb-2">
+              <BarChart3 className="h-4 w-4 text-orange-400" />
+              <div className="font-semibold text-sm">
+                Risk Assessment Matrix
               </div>
-              <div className="flex flex-col items-center gap-2">
-                <div className="w-4 h-4 rounded bg-green-400"></div>
-                <span className="text-xs font-medium">SAFE</span>
-                <span className="text-lg font-bold text-green-400">
-                  {neoData.filter((neo) => !neo.isPHA).length}
-                </span>
+              <Badge className="text-xs bg-orange-500/20 text-orange-400 border-orange-500/30">
+                Data Analysis
+              </Badge>
+            </div>
+            <div className="text-xs text-muted-foreground space-y-1">
+              <div>
+                • <strong>Purpose:</strong> Visual heat map analysis of PHA distribution across size and velocity categories
+              </div>
+              <div>
+                • <strong>Heat Map:</strong> Color intensity shows PHA percentage risk in each category combination
+              </div>
+              <div>
+                • <strong>Interactive:</strong> Click on cells for to filter the list to asteroids in that category
               </div>
             </div>
           </div>
@@ -631,8 +614,7 @@ export const HowItWorks = ({
                 by any parameter by clicking on it
               </div>
               <div>
-                • <strong>Data View:</strong> Size, velocity, distance, threat
-                level, and approach time
+                • <strong>Data View:</strong> Size, velocity, distance, PHA status, and approach time
               </div>
             </div>
           </div>
@@ -646,8 +628,7 @@ export const HowItWorks = ({
             </div>
             <div className="text-xs text-muted-foreground space-y-1">
               <div>
-                • <strong>Purpose:</strong> Real-time overview of planetary
-                defense system health
+                • <strong>Purpose:</strong> General overview of the STAR SHIELD system
               </div>
               <div>
                 • <strong>Monitoring:</strong> API Connection Status
@@ -751,7 +732,7 @@ export const HowItWorks = ({
           {/* Keyboard hints */}
           <div className="absolute top-2 right-16 text-xs text-muted-foreground opacity-60">
             ← → to navigate • ESC to close{" "}
-            {currentStep === 2 && "• SPACE to play/pause"}
+            {currentStep === 1 && "• SPACE to play/pause"}
           </div>
 
           {/* Header with progress */}
