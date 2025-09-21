@@ -4,7 +4,7 @@ import { RiskAssessmentMatrix } from "@/components/RiskAssessmentMatrix";
 import SpaceVisualization from "@/components/SpaceVisualization";
 import { SystemStatus } from "@/components/SystemStatus";
 import { useEffect, useState } from "react";
-import { getMockNEOData, getNEOData, NEOData } from "./lib/neoService";
+import { getNEOData, NEOData } from "./lib/neoService";
 
 const Index = () => {
   const [neoData, setNeoData] = useState<NEOData[]>([]);
@@ -12,17 +12,19 @@ const Index = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedNEO, setSelectedNEO] = useState<string | null>(null);
   const [sizeFilter, setSizeFilter] = useState<string | null>(null);
+  const [distanceFilter, setDistanceFilter] = useState<string | null>(null);
   const [velocityFilter, setVelocityFilter] = useState<string | null>(null);
 
   // Handle matrix cell click for filtering
-  const handleMatrixFilter = (size: string, velocity: string) => {
-    setSizeFilter(size);
+  const handleMatrixFilter = (distance: string, velocity: string) => {
+    setDistanceFilter(distance);
     setVelocityFilter(velocity);
   };
 
   // Clear filters
   const clearFilters = () => {
     setSizeFilter(null);
+    setDistanceFilter(null);
     setVelocityFilter(null);
   };
 
@@ -76,12 +78,16 @@ const Index = () => {
             neoData={neoData}
             setSelectedNEO={setSelectedNEO}
             selectedNEO={selectedNEO}
+            loading={loading}
           />
-          <RiskAssessmentMatrix 
-            neoData={neoData} 
+          <RiskAssessmentMatrix
+            neoData={neoData}
             loading={loading}
             onFilterSelect={handleMatrixFilter}
-            activeFilters={{ size: sizeFilter, velocity: velocityFilter }}
+            activeFilters={{
+              distance: distanceFilter,
+              velocity: velocityFilter,
+            }}
           />
         </div>
 

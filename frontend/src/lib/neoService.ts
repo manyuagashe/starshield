@@ -5,6 +5,7 @@ interface NEOData {
   name: string;
   size: number; // meters
   distance: number; // million km
+  distanceAU: number; // AU
   velocity: number; // km/s
   isPHA: boolean; // is potentially hazardous asteroid
   etaClosest: string; // ISO date string for closest approach
@@ -15,13 +16,38 @@ interface NEOData {
 async function getNEOData(): Promise<NEOData[]> {
   const response = await apiClient.get("/data/all");
   console.log("Fetched NEO data:", response.data.predictions);
-  return response.data.predictions.map(
+
+  // Remove duplicates based on object_id, preferring PHA entries
+  const uniqueItems = new Map();
+
+  response.data.predictions.forEach((item) => {
+    const objectId = item.object_id;
+    const isPHA = Boolean(item.input_features.is_pha);
+
+    if (!uniqueItems.has(objectId)) {
+      // First occurrence of this object_id
+      uniqueItems.set(objectId, item);
+    } else {
+      // Duplicate found - keep the PHA version if this one is PHA
+      const existing = uniqueItems.get(objectId);
+      const existingIsPHA = Boolean(existing.input_features.is_pha);
+
+      if (isPHA && !existingIsPHA) {
+        // Replace non-PHA with PHA
+        uniqueItems.set(objectId, item);
+      }
+      // If existing is PHA or both are PHA/non-PHA, keep existing
+    }
+  });
+
+  return Array.from(uniqueItems.values()).map(
     (item) =>
       ({
         id: `${item.object_id}-${Math.random()}`,
         name: item.name,
         size: item.size_km * 1000, // Convert km to meters
         distance: item.distance_km / 1_000_000,
+        distanceAU: item.distance_au, // Convert km to AU
         velocity: item.velocity_kms,
         isPHA: Boolean(item.input_features.is_pha),
         etaClosest: item.eta_closest,
@@ -215,6 +241,7 @@ function getMockNEOData(): NEOData[] {
       name: obj.name,
       size: obj.size,
       distance,
+      distanceAU: distance * 0.00668459,
       velocity,
       isPHA,
       etaClosest,

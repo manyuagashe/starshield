@@ -1,5 +1,5 @@
-import { NEOData } from "@/lib/neoService";
 import { Badge } from "@/components/ui/badge";
+import { NEOData } from "@/lib/neoService";
 import {
   ArrowUpDown,
   ChevronDown,
@@ -54,10 +54,10 @@ export const NEOTracker = ({
   const ITEMS_PER_PAGE = 12;
 
   useEffect(() => {
-    console.log("selectedNEO changed:", selectedNEO);
     if (selectedNEO) {
-      console.log("setting search");
       setSearchTerm(neoData.find((neo) => neo.id === selectedNEO)?.name || "");
+    } else {
+      setSearchTerm("");
     }
   }, [selectedNEO, neoData]);
 
@@ -67,7 +67,7 @@ export const NEOTracker = ({
   }, [searchTerm, sizeFilter, velocityFilter, sortField, sortDirection]);
 
   const loadMoreItems = () => {
-    setItemsToShow(prev => prev + ITEMS_PER_PAGE);
+    setItemsToShow((prev) => prev + ITEMS_PER_PAGE);
   };
 
   const filteredAndSortedData = useMemo(() => {
@@ -94,7 +94,8 @@ export const NEOTracker = ({
     if (velocityFilter) {
       filtered = filtered.filter((neo) => {
         if (velocityFilter === "Slow") return neo.velocity < 15;
-        if (velocityFilter === "Medium") return neo.velocity >= 15 && neo.velocity < 25;
+        if (velocityFilter === "Medium")
+          return neo.velocity >= 15 && neo.velocity < 25;
         if (velocityFilter === "Fast") return neo.velocity >= 25;
         return true;
       });
@@ -143,7 +144,14 @@ export const NEOTracker = ({
         return sortDirection === "asc" ? comparison : -comparison;
       }
     });
-  }, [neoData, searchTerm, sortField, sortDirection, sizeFilter, velocityFilter]);
+  }, [
+    neoData,
+    searchTerm,
+    sortField,
+    sortDirection,
+    sizeFilter,
+    velocityFilter,
+  ]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -177,10 +185,6 @@ export const NEOTracker = ({
     </Button>
   );
 
-  const formatDistance = (distance: number) => {
-    return (distance * 149.6).toFixed(3); // Convert AU to million km
-  };
-
   const formatTime = (hours: number) => {
     if (hours < 24) return `${hours.toFixed(1)}h`;
     const days = Math.floor(hours / 24);
@@ -195,10 +199,9 @@ export const NEOTracker = ({
           NEAR EARTH OBJECT TRACKER
         </h2>
         <div className="text-xs text-muted-foreground">
-          {filteredAndSortedData.length > itemsToShow 
+          {filteredAndSortedData.length > itemsToShow
             ? `Showing ${itemsToShow} of ${filteredAndSortedData.length} • Total: ${neoData.length}`
-            : `${filteredAndSortedData.length} of ${neoData.length} objects`
-          }
+            : `${filteredAndSortedData.length} of ${neoData.length} objects`}
         </div>
       </div>
 
@@ -273,14 +276,22 @@ export const NEOTracker = ({
       {/* Active Filter Indicators */}
       {(sizeFilter || velocityFilter) && (
         <div className="flex items-center gap-2 mb-3 p-2 bg-primary/10 rounded-lg border border-primary/20">
-          <span className="text-xs text-muted-foreground font-mono">ACTIVE FILTERS:</span>
+          <span className="text-xs text-muted-foreground font-mono">
+            ACTIVE FILTERS:
+          </span>
           {sizeFilter && (
-            <Badge variant="outline" className="text-xs bg-blue-500/20 text-blue-400 border-blue-500/30">
+            <Badge
+              variant="outline"
+              className="text-xs bg-blue-500/20 text-blue-400 border-blue-500/30"
+            >
               Size: {sizeFilter}
             </Badge>
           )}
           {velocityFilter && (
-            <Badge variant="outline" className="text-xs bg-green-500/20 text-green-400 border-green-500/30">
+            <Badge
+              variant="outline"
+              className="text-xs bg-green-500/20 text-green-400 border-green-500/30"
+            >
               Velocity: {velocityFilter}
             </Badge>
           )}
@@ -351,7 +362,7 @@ export const NEOTracker = ({
                       <span className="text-muted-foreground">DISTANCE:</span>
                     </SortButton>
                     <div className="text-foreground font-mono">
-                      {formatDistance(neo.distance)} Mkm
+                      {neo.distanceAU} AU
                     </div>
                   </div>
                   <div>
@@ -384,7 +395,14 @@ export const NEOTracker = ({
                   onClick={loadMoreItems}
                   className="gap-2 bg-background/50 border-primary/30 hover:bg-primary/10 text-sm"
                 >
-                  <span>Show {Math.min(ITEMS_PER_PAGE, filteredAndSortedData.length - itemsToShow)} more</span>
+                  <span>
+                    Show{" "}
+                    {Math.min(
+                      ITEMS_PER_PAGE,
+                      filteredAndSortedData.length - itemsToShow
+                    )}{" "}
+                    more
+                  </span>
                   <ChevronDown className="h-4 w-4" />
                 </Button>
               </div>
@@ -393,7 +411,8 @@ export const NEOTracker = ({
             {/* Show pagination info */}
             {filteredAndSortedData.length > ITEMS_PER_PAGE && (
               <div className="text-center text-xs text-muted-foreground pt-2 border-t border-primary/20 mt-3">
-                Showing {Math.min(itemsToShow, filteredAndSortedData.length)} of {filteredAndSortedData.length} objects
+                Showing {Math.min(itemsToShow, filteredAndSortedData.length)} of{" "}
+                {filteredAndSortedData.length} objects
               </div>
             )}
 
