@@ -3,7 +3,7 @@ import apiClient from "./apiClient";
 interface NEOData {
   id: string;
   name: string;
-  size: number;
+  size: number; // meters
   distance: number; // million km
   velocity: number; // km/s
   threatLevel: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
@@ -19,7 +19,7 @@ async function getNEOData(): Promise<NEOData[]> {
       ({
         id: item.object_id,
         name: item.name,
-        size: item.size_km,
+        size: item.size_km * 1000, // Convert km to meters
         distance: item.distance_km / 1_000_000,
         velocity: item.velocity_kms,
         threatLevel:

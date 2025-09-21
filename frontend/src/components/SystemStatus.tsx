@@ -1,7 +1,13 @@
 import { NEOData } from "@/lib/neoService";
 import { useEffect, useState } from "react";
 
-export const SystemStatus = ({ neoData }: { neoData: NEOData[] }) => {
+export const SystemStatus = ({
+  neoData,
+  loading,
+}: {
+  neoData: NEOData[];
+  loading: boolean;
+}) => {
   const [systemTime, setSystemTime] = useState(new Date());
 
   useEffect(() => {
@@ -35,22 +41,41 @@ export const SystemStatus = ({ neoData }: { neoData: NEOData[] }) => {
           <div className="text-xs text-muted-foreground mb-2">
             THREAT ASSESSMENT
           </div>
-          <div className="text-sm">
-            <div className="flex justify-between">
-              <span>MONITORED OBJECTS:</span>
-              <span className="text-primary font-mono">{neoData.length}</span>
+          {loading ? (
+            <div className="text-sm">
+              <div className="flex justify-between">
+                <span>SCANNING...</span>
+                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+              </div>
+              <div className="flex justify-between">
+                <span>ANALYZING THREATS...</span>
+                <div className="w-4 h-4 border-2 border-warning border-t-transparent rounded-full animate-spin"></div>
+              </div>
+              <div className="flex justify-between">
+                <span>PROCESSING DATA...</span>
+                <div className="w-4 h-4 border-2 border-destructive border-t-transparent rounded-full animate-spin"></div>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span>HIGH PRIORITY:</span>
-              <span className="text-warning font-mono">{highPriorityThreats}</span>
+          ) : (
+            <div className="text-sm">
+              <div className="flex justify-between">
+                <span>MONITORED OBJECTS:</span>
+                <span className="text-primary font-mono">{neoData.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>HIGH PRIORITY:</span>
+                <span className="text-warning font-mono">
+                  {highPriorityThreats}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>IMMEDIATE THREATS:</span>
+                <span className="text-destructive font-mono">
+                  {immediateThreats}
+                </span>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span>IMMEDIATE THREATS:</span>
-              <span className="text-destructive font-mono">
-                {immediateThreats}
-              </span>
-            </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

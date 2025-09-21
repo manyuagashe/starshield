@@ -5,14 +5,21 @@ import { getNEOData, NEOData } from "./lib/neoService";
 
 const Index = () => {
   const [neoData, setNeoData] = useState<NEOData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setLoading(true);
+        setError(null);
         const data = await getNEOData();
-        console.log(data);
         setNeoData(data);
       } catch (error) {
         console.error("Error fetching NEO data:", error);
+        setError("Failed to fetch NEO data. Please check if the backend is running.");
+      } finally {
+        setLoading(false);
       }
     };
     fetchData();
@@ -43,12 +50,12 @@ const Index = () => {
       <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Left Column */}
         <div className="lg:col-span-2 space-y-4">
-          <NEOTracker neoData={neoData} />
+          <NEOTracker neoData={neoData} loading={loading} />
         </div>
 
         {/* Right Column */}
         <div className="space-y-4">
-          <SystemStatus neoData={neoData} />
+          <SystemStatus neoData={neoData} loading={loading}/>
         </div>
       </div>
     </div>
