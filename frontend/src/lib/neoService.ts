@@ -24,7 +24,13 @@ async function getNEOData(): Promise<NEOData[]> {
         velocity: item.velocity_kms,
         threatLevel:
           item.predicted_risk_level.toUpperCase() as NEOData["threatLevel"],
-        timeToClosestApproach: item.time_to_approach_hours ?? -1,
+        timeToClosestApproach: item.eta_closest
+          ? Math.max(
+              0,
+              (new Date(item.eta_closest).getTime() - new Date().getTime()) /
+                (1000 * 60 * 60)
+            )
+          : -1,
         impactProbability: item.impact_probability,
       } satisfies NEOData)
   );
@@ -34,49 +40,41 @@ function getMockNEOData(): NEOData[] {
   const objects = [
     {
       name: "2024-XK47",
-      classification: "Apollo",
       size: 0.8,
       baseDistance: 0.02,
     },
     {
       name: "2024-YM12",
-      classification: "Aten",
       size: 1.2,
       baseDistance: 0.05,
     },
     {
       name: "2024-ZN88",
-      classification: "Atira",
       size: 0.3,
       baseDistance: 0.15,
     },
     {
       name: "2024-QP23",
-      classification: "Apollo",
       size: 2.1,
       baseDistance: 0.08,
     },
     {
       name: "2024-RD56",
-      classification: "Amor",
       size: 0.6,
       baseDistance: 0.12,
     },
     {
       name: "2024-ST14",
-      classification: "Apollo",
       size: 1.8,
       baseDistance: 0.03,
     },
     {
       name: "2024-TK99",
-      classification: "Aten",
       size: 0.4,
       baseDistance: 0.2,
     },
     {
       name: "2024-UV67",
-      classification: "Amor",
       size: 1.0,
       baseDistance: 0.07,
     },
@@ -108,7 +106,6 @@ function getMockNEOData(): NEOData[] {
       threatLevel,
       timeToClosestApproach: timeToClosest,
       impactProbability,
-      classification: obj.classification,
     };
   });
 }

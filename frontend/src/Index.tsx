@@ -1,5 +1,6 @@
 import { NEOTracker } from "@/components/NEOTracker";
 import { SystemStatus } from "@/components/SystemStatus";
+import { HowItWorks } from "@/components/HowItWorks";
 import { useEffect, useState } from "react";
 import { getNEOData, NEOData } from "./lib/neoService";
 
@@ -36,6 +37,7 @@ const Index = () => {
               Near Earth Object Tracking & Threat Assessment System
             </p>
           </div>
+          <HowItWorks neoData={neoData} loading={loading} />
         </div>
       </header>
 
