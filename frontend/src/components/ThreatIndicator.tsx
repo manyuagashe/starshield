@@ -1,38 +1,24 @@
 interface ThreatIndicatorProps {
-  level: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  isPHA: boolean;
   label?: string;
   className?: string;
 }
 
-export const ThreatIndicator = ({ level, label, className = "" }: ThreatIndicatorProps) => {
+export const ThreatIndicator = ({
+  isPHA,
+  label,
+  className = "",
+}: ThreatIndicatorProps) => {
   const getIndicatorClasses = () => {
-    switch (level) {
-      case 'LOW':
-        return 'threat-low';
-      case 'MEDIUM':
-        return 'threat-medium';
-      case 'HIGH':
-        return 'threat-high';
-      case 'CRITICAL':
-        return 'threat-high critical-pulse';
-      default:
-        return 'threat-low';
-    }
+    return isPHA ? "threat-high critical-pulse" : "threat-low";
   };
 
   const getTextColor = () => {
-    switch (level) {
-      case 'LOW':
-        return 'text-success';
-      case 'MEDIUM':
-        return 'text-warning';
-      case 'HIGH':
-        return 'text-destructive';
-      case 'CRITICAL':
-        return 'text-destructive glow-critical';
-      default:
-        return 'text-success';
-    }
+    return isPHA ? "text-destructive glow-critical" : "text-success";
+  };
+
+  const getStatusText = () => {
+    return isPHA ? "PHA" : "SAFE";
   };
 
   return (
@@ -44,7 +30,7 @@ export const ThreatIndicator = ({ level, label, className = "" }: ThreatIndicato
         </span>
       )}
       <span className={`text-xs font-mono ${getTextColor()}`}>
-        {level}
+        {getStatusText()}
       </span>
     </div>
   );
